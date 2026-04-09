@@ -18,6 +18,21 @@ SPEC.loader.exec_module(parent)
 
 
 class ParentRouterTests(unittest.TestCase):
+    @staticmethod
+    def make_transcript_entries(count: int) -> list[dict]:
+        entries: list[dict] = []
+        for idx in range(count):
+            if idx % 2 == 0:
+                entries.append({"type": "user", "message": {"content": f"user message {idx}"}})
+            else:
+                entries.append(
+                    {
+                        "type": "assistant",
+                        "message": {"content": [{"type": "text", "text": f"assistant message {idx}"}]},
+                    }
+                )
+        return entries
+
     def test_parse_command_arguments(self) -> None:
         parsed = parent.parse_command_arguments("--model sonnet --mode execute --effort high --why fix auth flow")
         self.assertEqual(parsed.model, "sonnet")
@@ -26,9 +41,22 @@ class ParentRouterTests(unittest.TestCase):
         self.assertTrue(parsed.why)
         self.assertEqual(parsed.task, "fix auth flow")
 
-    def test_load_request_text_prefers_stdin_over_session_lookup(self) -> None:
+    def test_load_request_text_prefers_stdin_but_still_uses_session_for_anchor(self) -> None:
         cli_args = mock.Mock(session_id="session", command_name="/parent", started_at=None)
-        with mock.patch.object(sys, "stdin", io.StringIO("--dry-run rename one variable")):
+        with (
+            mock.patch.object(sys, "stdin", io.StringIO("--dry-run rename one variable")),
+            mock.patch.object(parent, "extract_prompt_from_session", return_value=(7, "ignored transcript prompt")),
+        ):
+            anchor_index, raw_request = parent.load_request_text(cli_args, [])
+        self.assertEqual(anchor_index, 7)
+        self.assertEqual(raw_request, "--dry-run rename one variable")
+
+    def test_load_request_text_keeps_working_without_session_anchor(self) -> None:
+        cli_args = mock.Mock(session_id="session", command_name="/parent", started_at=None)
+        with (
+            mock.patch.object(sys, "stdin", io.StringIO("--dry-run rename one variable")),
+            mock.patch.object(parent, "extract_prompt_from_session", return_value=(-1, "")),
+        ):
             anchor_index, raw_request = parent.load_request_text(cli_args, [])
         self.assertEqual(anchor_index, -1)
         self.assertEqual(raw_request, "--dry-run rename one variable")
@@ -115,6 +143,39 @@ class ParentRouterTests(unittest.TestCase):
             self.assertEqual(argv[1], "-p")
             self.assertNotIn("rename one variable", " ".join(argv))
             self.assertEqual(run_command.call_args.kwargs["input_text"], parent.build_child_prompt(decision, "User: earlier context"))
+
+    def test_build_recent_context_skips_summary_when_message_count_is_within_limit(self) -> None:
+        entries = self.make_transcript_entries(parent.VISIBLE_TRANSCRIPT_MAX_MESSAGES)
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            mock.patch.object(parent, "load_session_entries", return_value=entries),
+            mock.patch.object(parent, "run_command") as run_command,
+        ):
+            context = parent.build_recent_context(Path(tmpdir), "session", len(entries))
+        self.assertIn("user message 0", context)
+        self.assertIn(f"assistant message {len(entries) - 1}", context)
+        self.assertNotIn("Summary of earlier conversation:", context)
+        run_command.assert_not_called()
+
+    def test_build_recent_context_summarizes_older_messages_with_haiku(self) -> None:
+        entries = self.make_transcript_entries(parent.VISIBLE_TRANSCRIPT_MAX_MESSAGES + 6)
+        completed = mock.Mock(returncode=0, stdout="- goal\n- decision", stderr="")
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            mock.patch.object(parent, "load_session_entries", return_value=entries),
+            mock.patch.object(parent, "run_command", return_value=completed) as run_command,
+        ):
+            context = parent.build_recent_context(Path(tmpdir), "session", len(entries))
+        self.assertIn("Summary of earlier conversation:", context)
+        self.assertIn("- goal", context)
+        self.assertIn("Recent conversation:", context)
+        self.assertIn(f"assistant message {len(entries) - 1}", context)
+        self.assertNotIn("user message 0", context)
+        argv = run_command.call_args.args[0]
+        self.assertEqual(argv[0], str(parent.CLAUDE_BIN))
+        self.assertIn("haiku", argv)
+        self.assertIn("--tools", argv)
+        self.assertEqual(run_command.call_args.kwargs["input_text"].count("user message"), 3)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,8 @@ RUNS_DIR = Path(os.environ.get("PARENTS_RUNS_DIR", ".parent/runs"))
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 VISIBLE_TRANSCRIPT_MAX_MESSAGES = 24
 VISIBLE_TRANSCRIPT_MAX_CHARS = 10000
+OLDER_CONTEXT_SUMMARY_MAX_CHARS = 16000
+OLDER_CONTEXT_SUMMARY_MAX_LINES = 10
 SESSION_PROMPT_RETRY_COUNT = int(os.environ.get("PARENTS_SESSION_PROMPT_RETRY_COUNT", "120"))
 SESSION_PROMPT_RETRY_SLEEP_SECONDS = float(
     os.environ.get("PARENTS_SESSION_PROMPT_RETRY_SLEEP_SECONDS", "0.5")
@@ -244,14 +246,10 @@ def extract_visible_text_from_entry(entry: dict) -> str:
     return "\n".join(texts).strip()
 
 
-def build_recent_context(session_id: str | None, anchor_index: int) -> str:
-    if not session_id or anchor_index < 0:
-        return ""
-    entries = load_session_entries(session_id)
-    if not entries:
-        return ""
+def collect_visible_transcript_blocks(entries: list[dict], anchor_index: int) -> list[str]:
+    if not entries or anchor_index < 0:
+        return []
     selected: list[str] = []
-    total_chars = 0
     for entry in reversed(entries[:anchor_index]):
         if entry.get("type") not in {"user", "assistant"}:
             continue
@@ -261,17 +259,80 @@ def build_recent_context(session_id: str | None, anchor_index: int) -> str:
         if not text:
             continue
         label = "User" if entry.get("type") == "user" else "Assistant"
-        block = f"{label}: {text}"
-        selected.append(block)
-        total_chars += len(block)
-        if len(selected) >= VISIBLE_TRANSCRIPT_MAX_MESSAGES or total_chars >= VISIBLE_TRANSCRIPT_MAX_CHARS:
-            break
-    if not selected:
-        return ""
+        selected.append(f"{label}: {text}")
     selected.reverse()
-    context = "\n\n".join(selected)
+    return selected
+
+
+def summarize_older_context(
+    older_blocks: list[str],
+    workspace_root: Path,
+    claude_bin: Path = CLAUDE_BIN,
+) -> str:
+    if not older_blocks:
+        return ""
+    older_context = "\n\n".join(older_blocks)
+    if len(older_context) > OLDER_CONTEXT_SUMMARY_MAX_CHARS:
+        older_context = older_context[-OLDER_CONTEXT_SUMMARY_MAX_CHARS:]
+
+    prompt = "\n\n".join(
+        [
+            "Summarize the older conversation context for a follow-up Claude Code request.",
+            f"Keep it to at most {OLDER_CONTEXT_SUMMARY_MAX_LINES} short bullet lines.",
+            "Preserve only durable context: user goal, constraints, decisions, repo facts, and unresolved questions.",
+            "Omit greetings, filler, and temporary execution chatter.",
+            "Return only the summary bullets.",
+            f"Older conversation:\n{older_context}",
+        ]
+    )
+    argv = [
+        str(claude_bin),
+        "-p",
+        "--model",
+        "haiku",
+        "--effort",
+        "low",
+        "--disable-slash-commands",
+        "--no-session-persistence",
+        "--tools",
+        "",
+    ]
+    env = os.environ.copy()
+    env["TERM"] = "dumb"
+    env["PARENTS_ACTIVE"] = "1"
+    try:
+        completed = run_command(argv, workspace_root, env, input_text=prompt)
+    except OSError:
+        return ""
+    if completed.returncode != 0:
+        return ""
+    return completed.stdout.strip()
+
+
+def build_recent_context(
+    workspace_root: Path,
+    session_id: str | None,
+    anchor_index: int,
+    claude_bin: Path = CLAUDE_BIN,
+) -> str:
+    if not session_id or anchor_index < 0:
+        return ""
+    entries = load_session_entries(session_id)
+    blocks = collect_visible_transcript_blocks(entries, anchor_index)
+    if not blocks:
+        return ""
+
+    summary = ""
+    if len(blocks) > VISIBLE_TRANSCRIPT_MAX_MESSAGES:
+        older_blocks = blocks[:-VISIBLE_TRANSCRIPT_MAX_MESSAGES]
+        blocks = blocks[-VISIBLE_TRANSCRIPT_MAX_MESSAGES:]
+        summary = summarize_older_context(older_blocks, workspace_root, claude_bin=claude_bin)
+
+    context = "\n\n".join(blocks)
     if len(context) > VISIBLE_TRANSCRIPT_MAX_CHARS:
         context = context[-VISIBLE_TRANSCRIPT_MAX_CHARS:]
+    if summary:
+        context = f"Summary of earlier conversation:\n{summary}\n\nRecent conversation:\n{context}"
     return context
 
 
@@ -862,12 +923,19 @@ def resolve_profile(cli_args: argparse.Namespace) -> Profile:
 
 
 def load_request_text(cli_args: argparse.Namespace, remaining: list[str]) -> tuple[int, str]:
+    started_at = parse_started_at(cli_args.started_at) or datetime.now(timezone.utc)
     prompt = sys.stdin.read().strip()
     if prompt:
+        if cli_args.session_id:
+            anchor_index, _ = extract_prompt_from_session(
+                cli_args.session_id,
+                cli_args.command_name,
+                started_at,
+            )
+            return anchor_index, prompt
         return -1, prompt
     if remaining:
         return -1, " ".join(remaining).strip()
-    started_at = parse_started_at(cli_args.started_at) or datetime.now(timezone.utc)
     if cli_args.session_id:
         return extract_prompt_from_session(cli_args.session_id, cli_args.command_name, started_at)
     return -1, ""
@@ -888,7 +956,7 @@ def main(argv: list[str] | None = None) -> int:
         if not raw_request:
             raise ValueError("Could not capture the current command arguments. Please try again.")
         parsed = parse_command_arguments(raw_request)
-        recent_context = build_recent_context(cli_args.session_id, anchor_index)
+        recent_context = build_recent_context(workspace_root, cli_args.session_id, anchor_index)
         decision = choose_route(profile, parsed, workspace_root)
     except ValueError as exc:
         print(str(exc))
