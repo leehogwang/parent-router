@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 from pathlib import Path
 import sys
 import tempfile
@@ -24,6 +25,13 @@ class ParentRouterTests(unittest.TestCase):
         self.assertEqual(parsed.effort, "high")
         self.assertTrue(parsed.why)
         self.assertEqual(parsed.task, "fix auth flow")
+
+    def test_load_request_text_prefers_stdin_over_session_lookup(self) -> None:
+        cli_args = mock.Mock(session_id="session", command_name="/parent", started_at=None)
+        with mock.patch.object(sys, "stdin", io.StringIO("--dry-run rename one variable")):
+            anchor_index, raw_request = parent.load_request_text(cli_args, [])
+        self.assertEqual(anchor_index, -1)
+        self.assertEqual(raw_request, "--dry-run rename one variable")
 
     def test_parent_uses_opus_for_architecture_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -93,6 +101,20 @@ class ParentRouterTests(unittest.TestCase):
             self.assertIn("--permission-mode", argv)
             self.assertIn("plan", argv)
             self.assertIn("Read,Grep,Glob", argv)
+
+    def test_child_prompt_is_sent_via_stdin(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            parsed = parent.parse_command_arguments("rename one variable")
+            decision = parent.choose_route(parent.PROFILES["parent"], parsed, root)
+            completed = mock.Mock(returncode=0, stdout="ok", stderr="")
+            with mock.patch.object(parent, "run_command", return_value=completed) as run_command:
+                parent.execute_route(decision, root, "User: earlier context")
+            argv = run_command.call_args.args[0]
+            self.assertEqual(argv[0], str(parent.CLAUDE_BIN))
+            self.assertEqual(argv[1], "-p")
+            self.assertNotIn("rename one variable", " ".join(argv))
+            self.assertEqual(run_command.call_args.kwargs["input_text"], parent.build_child_prompt(decision, "User: earlier context"))
 
 
 if __name__ == "__main__":

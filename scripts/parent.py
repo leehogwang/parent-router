@@ -691,12 +691,18 @@ def build_child_prompt(decision: RouteDecision, recent_context: str) -> str:
     return "\n\n".join(parts)
 
 
-def run_command(command: list[str], workspace_root: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+def run_command(
+    command: list[str],
+    workspace_root: Path,
+    env: dict[str, str],
+    input_text: str | None = None,
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         command,
         cwd=str(workspace_root),
         text=True,
         capture_output=True,
+        input=input_text,
         env=env,
         check=False,
     )
@@ -740,12 +746,12 @@ def execute_route(
         )
     else:
         argv.extend(["--permission-mode", "auto"])
-    argv.append(build_child_prompt(decision, recent_context))
+    child_prompt = build_child_prompt(decision, recent_context)
     env = os.environ.copy()
     env["TERM"] = "dumb"
     env["PARENTS_ACTIVE"] = "1"
     try:
-        completed = run_command(argv, workspace_root, env)
+        completed = run_command(argv, workspace_root, env, input_text=child_prompt)
     except OSError as exc:
         return ExecutionResult(ok=False, stdout="", stderr=str(exc), exit_code=127, argv=argv)
     return ExecutionResult(
