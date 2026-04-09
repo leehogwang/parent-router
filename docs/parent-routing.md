@@ -1,0 +1,56 @@
+# Parent Routing
+
+`parents` adds two Claude Code commands:
+
+- `/parent`
+- `/parent-no-opus`
+
+Both commands are thin skill entrypoints that call the shared router at [`scripts/parent.py`](/home/students/cs/202421012/parents/scripts/parent.py). The router recovers the current command arguments from the Claude session transcript, chooses `model`, `mode`, and `effort`, and then launches a child `claude -p` session exactly once.
+
+## Behavior
+
+- `/parent` may choose `haiku`, `sonnet`, or `opus`.
+- `/parent-no-opus` may choose only `haiku` or `sonnet`.
+- Both commands may auto-select:
+  - `mode`: `plan` or `execute`
+  - `effort`: `low`, `medium`, `high`, or `max`
+- The default user-facing output is just the child Claude response, so the command feels like normal Claude usage.
+- `--why` adds a short natural-language explanation before the response.
+- `--dry-run` prints only the chosen route in natural language and does not launch a child session.
+
+## Supported Flags
+
+- `--model auto|haiku|sonnet|opus`
+- `--mode auto|plan|execute`
+- `--effort auto|low|medium|high|max`
+- `--why`
+- `--dry-run`
+
+`/parent-no-opus` rejects `--model opus`.
+
+## Routing Notes
+
+- High-risk, high-ambiguity, migration, security, architecture, and greenfield requests are pushed into `plan`.
+- Small bounded low-risk requests may use `haiku`.
+- Normal coding work defaults to `sonnet`.
+- `/parent-no-opus` handles `opus`-class tasks by staying on `sonnet` and preferring `plan`.
+- There is no runtime fallback or automatic retry. One route is selected, one child session is launched, and any failure is returned directly.
+
+## Logging
+
+Each run writes:
+
+- JSON metadata to `.parent/runs/YYYY-MM-DD/*.json`
+- A Markdown summary to `.parent/runs/YYYY-MM-DD/*.md`
+
+The logs include:
+
+- original request
+- explicit overrides
+- feature scores
+- selected model, mode, and effort
+- effective effort after clamping
+- confidence and reason codes
+- child exit status and stderr summary
+
+This keeps the interactive UX clean while preserving the full decision trail for later inspection.

@@ -1,0 +1,249 @@
+# parents
+
+Project-scoped Claude Code slash commands that automatically choose the right model, mode, and reasoning effort for a request.
+
+## Demo
+
+![parents interactive Claude demo](assets/demo/parent-interactive.gif)
+
+- MP4: [assets/demo/parent-interactive.mp4](assets/demo/parent-interactive.mp4)
+- Session summary: [assets/demo/parent-interactive.txt](assets/demo/parent-interactive.txt)
+- Source capture: `assets/demo/source/parent-interactive.{in,out,time}`
+
+The demo assets are rendered from a real interactive `claude` terminal session. The renderer adds crop, pacing, and highlight treatment for readability, but the underlying source comes from an actual Claude Code CLI run.
+
+## English
+
+### Overview
+
+`parents` adds two project-scoped slash commands:
+
+- `/parent`
+- `/parent-no-opus`
+
+Both commands recover the current slash-command arguments from the Claude session transcript, choose an appropriate `model`, `mode`, and `effort`, and then launch one child `claude -p` run.
+
+The user-facing output is intentionally plain. You see a normal Claude response, not an internal routing report.
+
+### Command differences
+
+| Command | Models | Typical use |
+| --- | --- | --- |
+| `/parent` | `haiku`, `sonnet`, `opus` | General automatic routing |
+| `/parent-no-opus` | `haiku`, `sonnet` | Cost-constrained routing with no Opus |
+
+### Supported flags
+
+- `--model auto|haiku|sonnet|opus`
+- `--mode auto|plan|execute`
+- `--effort auto|low|medium|high|max`
+- `--why`
+- `--dry-run`
+
+`/parent-no-opus` rejects `--model opus`.
+
+### Installation
+
+This repository is currently project-scoped.
+
+1. Open this folder in Claude Code.
+2. Claude Code discovers the custom commands in `.claude/commands/`.
+3. Start `claude` in this directory and run one of the commands below.
+
+### Usage examples
+
+Interactive:
+
+```bash
+claude
+/parent fix the flaky multi-file integration test
+/parent-no-opus --dry-run Design a new authentication architecture with migration planning
+```
+
+One-shot:
+
+```bash
+claude -p '/parent --dry-run rename one variable'
+claude -p '/parent --why fix the flaky multi-file integration test'
+claude -p '/parent-no-opus --dry-run Design a new authentication architecture with migration planning'
+```
+
+### How routing works
+
+- Low-risk, bounded work may use `haiku`.
+- Normal implementation defaults to `sonnet`.
+- High-risk, broad, architectural, migration, or research-heavy requests go to `plan`.
+- `/parent-no-opus` handles Opus-class tasks by staying on `sonnet` and preferring `plan`.
+- There is no execution fallback or retry. One route is chosen and executed once.
+
+### Logging
+
+Every run writes:
+
+- JSON metadata to `.parent/runs/YYYY-MM-DD/*.json`
+- Markdown summaries to `.parent/runs/YYYY-MM-DD/*.md`
+
+The logs include the original request, selected model/mode/effort, confidence, reason codes, child exit status, and stderr summary.
+
+### Development
+
+```bash
+python3 -m unittest discover -s tests -v
+python3 -m py_compile scripts/parent.py scripts/build_demo.py scripts/capture_interactive_demo.py scripts/render_interactive_demo.py tests/test_parent_router.py tests/test_demo_renderer.py
+```
+
+### Demo assets
+
+The repository includes:
+
+- `assets/demo/parent-interactive.gif`
+- `assets/demo/parent-interactive.mp4`
+- `assets/demo/parent-interactive.txt`
+- `assets/demo/source/parent-interactive.in`
+- `assets/demo/source/parent-interactive.out`
+- `assets/demo/source/parent-interactive.time`
+- `scripts/build_demo.py`
+- `scripts/capture_interactive_demo.py`
+- `scripts/render_interactive_demo.py`
+
+Rebuild the full interactive demo:
+
+```bash
+python3 scripts/build_demo.py
+```
+
+Re-render from an existing capture:
+
+```bash
+python3 scripts/build_demo.py --skip-capture
+```
+
+Capture only:
+
+```bash
+python3 scripts/capture_interactive_demo.py
+```
+
+Render only:
+
+```bash
+python3 scripts/render_interactive_demo.py
+```
+
+## 한국어
+
+### 개요
+
+`parents`는 Claude Code에 두 개의 프로젝트 스코프 slash command를 추가한다.
+
+- `/parent`
+- `/parent-no-opus`
+
+두 명령 모두 현재 slash-command 인자를 Claude 세션 transcript에서 복구한 뒤, 적절한 `model`, `mode`, `effort`를 선택하고 child `claude -p`를 정확히 한 번 실행한다.
+
+사용자에게는 라우팅 리포트를 노출하지 않는다. 결과는 일반적인 Claude 응답처럼 보이게 유지한다.
+
+### 명령 차이
+
+| 명령 | 사용 가능한 모델 | 권장 용도 |
+| --- | --- | --- |
+| `/parent` | `haiku`, `sonnet`, `opus` | 일반 자동 라우팅 |
+| `/parent-no-opus` | `haiku`, `sonnet` | Opus 없이 비용을 통제하는 라우팅 |
+
+### 지원 플래그
+
+- `--model auto|haiku|sonnet|opus`
+- `--mode auto|plan|execute`
+- `--effort auto|low|medium|high|max`
+- `--why`
+- `--dry-run`
+
+`/parent-no-opus`는 `--model opus`를 허용하지 않는다.
+
+### 설치 방법
+
+현재는 프로젝트 스코프로 동작한다.
+
+1. 이 폴더를 Claude Code에서 연다.
+2. Claude Code가 `.claude/commands/` 아래 커스텀 명령을 자동 인식한다.
+3. 이 디렉터리에서 `claude`를 실행한 뒤 아래 명령을 사용한다.
+
+### 사용 예시
+
+인터랙티브:
+
+```bash
+claude
+/parent fix the flaky multi-file integration test
+/parent-no-opus --dry-run Design a new authentication architecture with migration planning
+```
+
+원샷:
+
+```bash
+claude -p '/parent --dry-run rename one variable'
+claude -p '/parent --why fix the flaky multi-file integration test'
+claude -p '/parent-no-opus --dry-run Design a new authentication architecture with migration planning'
+```
+
+### 라우팅 규칙
+
+- 작고 저위험인 작업은 `haiku`로 갈 수 있다.
+- 일반적인 구현 작업은 기본적으로 `sonnet`을 사용한다.
+- 고위험, 광범위, 아키텍처, 마이그레이션, 리서치 성격의 요청은 `plan`으로 올린다.
+- `/parent-no-opus`는 원래 Opus급인 작업도 `sonnet`으로 유지하고 `plan`을 우선한다.
+- 실행 fallback이나 자동 재시도는 없다. 한 번 결정하고 한 번만 실행한다.
+
+### 로그
+
+모든 실행은 다음 경로에 기록된다.
+
+- JSON 메타데이터: `.parent/runs/YYYY-MM-DD/*.json`
+- Markdown 요약: `.parent/runs/YYYY-MM-DD/*.md`
+
+기록에는 원문 요청, 선택된 모델/모드/effort, confidence, reason codes, child 종료 상태, stderr 요약이 포함된다.
+
+### 개발용 검증
+
+```bash
+python3 -m unittest discover -s tests -v
+python3 -m py_compile scripts/parent.py scripts/build_demo.py scripts/capture_interactive_demo.py scripts/render_interactive_demo.py tests/test_parent_router.py tests/test_demo_renderer.py
+```
+
+### 데모 자산
+
+저장소에는 다음 파일이 포함된다.
+
+- `assets/demo/parent-interactive.gif`
+- `assets/demo/parent-interactive.mp4`
+- `assets/demo/parent-interactive.txt`
+- `assets/demo/source/parent-interactive.in`
+- `assets/demo/source/parent-interactive.out`
+- `assets/demo/source/parent-interactive.time`
+- `scripts/build_demo.py`
+- `scripts/capture_interactive_demo.py`
+- `scripts/render_interactive_demo.py`
+
+전체 인터랙티브 데모를 다시 만들려면:
+
+```bash
+python3 scripts/build_demo.py
+```
+
+기존 캡처로 다시 렌더링만 하려면:
+
+```bash
+python3 scripts/build_demo.py --skip-capture
+```
+
+캡처만 다시 하려면:
+
+```bash
+python3 scripts/capture_interactive_demo.py
+```
+
+렌더만 다시 하려면:
+
+```bash
+python3 scripts/render_interactive_demo.py
+```

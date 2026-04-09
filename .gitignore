@@ -1,0 +1,5 @@
+.parent/
+__pycache__/
+.pytest_cache/
+demo/.tmp/
+log

@@ -1,0 +1,6 @@
+Interactive Claude Code session in ~/parents
+Rendered from a real terminal capture with crop and highlight effects.
+
+$ /parent --dry-run rename one variable
+
+I'll use Haiku in execute mode with low effortbasedontherequestscope,risk,and ambiguity.
