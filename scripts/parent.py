@@ -831,6 +831,17 @@ def summarize_text(text: str, limit: int = 1000) -> str:
     return compact[: limit - 3] + "..."
 
 
+def get_child_arg_value(argv: list[str], flag: str) -> str | None:
+    try:
+        index = argv.index(flag)
+    except ValueError:
+        return None
+    next_index = index + 1
+    if next_index >= len(argv):
+        return None
+    return argv[next_index]
+
+
 def explain_decision(profile: Profile, decision: RouteDecision) -> str:
     model = decision.selected_model.capitalize()
     mode = decision.selected_mode
@@ -906,6 +917,8 @@ def write_logs(
             [
                 f"- Status: `{'ok' if result.ok else 'failed'}`",
                 f"- Exit code: `{result.exit_code}`",
+                f"- Child permission mode: `{get_child_arg_value(result.argv, '--permission-mode') or '(none)'}`",
+                f"- Child tools: `{get_child_arg_value(result.argv, '--tools') or '(none)'}`",
                 f"- STDERR: {summarize_text(result.stderr) or '(empty)' }",
             ]
         )

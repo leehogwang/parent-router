@@ -179,5 +179,39 @@ class ParentRouterTests(unittest.TestCase):
         self.assertEqual(run_command.call_args.kwargs["input_text"].count("user message"), 3)
 
 
+    def test_write_logs_includes_child_permission_mode_and_tools_in_markdown(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            parsed = parent.parse_command_arguments("Plan a migration for the production auth system")
+            decision = parent.choose_route(parent.PROFILES["parent"], parsed, root)
+            result = parent.ExecutionResult(
+                ok=True,
+                stdout="plan output",
+                stderr="",
+                exit_code=0,
+                argv=[
+                    str(parent.CLAUDE_BIN),
+                    "-p",
+                    "--model",
+                    decision.selected_model,
+                    "--effort",
+                    decision.effective_effort,
+                    "--permission-mode",
+                    "auto",
+                    "--tools",
+                    "Read,Grep,Glob",
+                ],
+            )
+
+            parent.write_logs(root, parent.PROFILES["parent"], "/parent", parsed, decision, result)
+
+            run_dir = root / parent.RUNS_DIR / parent.datetime.now(parent.timezone.utc).strftime("%Y-%m-%d")
+            markdown_files = list(run_dir.glob("*.md"))
+            self.assertEqual(len(markdown_files), 1)
+            markdown = markdown_files[0].read_text(encoding="utf-8")
+            self.assertIn("- Child permission mode: `auto`", markdown)
+            self.assertIn("- Child tools: `Read,Grep,Glob`", markdown)
+
+
 if __name__ == "__main__":
     unittest.main()

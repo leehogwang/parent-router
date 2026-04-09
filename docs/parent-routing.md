@@ -51,6 +51,7 @@ The logs include:
 - selected model, mode, and effort
 - effective effort after clamping
 - confidence and reason codes
+- child permission mode and tool restrictions used for the routed Claude invocation
 - child exit status and stderr summary
 
 This keeps the interactive UX clean while preserving the full decision trail for later inspection.
