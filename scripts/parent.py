@@ -798,7 +798,7 @@ def execute_route(
         argv.extend(
             [
                 "--permission-mode",
-                "plan",
+                "auto",
                 "--tools",
                 "Read,Grep,Glob",
                 "--allowed-tools",

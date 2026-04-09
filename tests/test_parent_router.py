@@ -117,7 +117,7 @@ class ParentRouterTests(unittest.TestCase):
             self.assertFalse(result.ok)
             self.assertEqual(run_command.call_count, 1)
 
-    def test_plan_route_uses_read_only_tools(self) -> None:
+    def test_plan_route_uses_read_only_tools_without_claude_plan_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             parsed = parent.parse_command_arguments("Plan a migration for the production auth system")
@@ -127,7 +127,8 @@ class ParentRouterTests(unittest.TestCase):
                 parent.execute_route(decision, root, "")
             argv = run_command.call_args.args[0]
             self.assertIn("--permission-mode", argv)
-            self.assertIn("plan", argv)
+            self.assertIn("auto", argv)
+            self.assertNotIn("plan", argv)
             self.assertIn("Read,Grep,Glob", argv)
 
     def test_child_prompt_is_sent_via_stdin(self) -> None:
