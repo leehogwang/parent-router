@@ -5,7 +5,7 @@
 - `/parent`
 - `/parent-no-opus`
 
-Both commands are thin skill entrypoints that call the shared router at [`scripts/parent.py`](/home/students/cs/202421012/parents/scripts/parent.py). The router recovers the current command arguments from the Claude session transcript, chooses `model`, `mode`, and `effort`, and then launches a child `claude -p` session exactly once.
+Both commands are thin skill entrypoints that call the shared router at [`scripts/parent.py`](/home/students/cs/202421012/parents/scripts/parent.py). The router first reads the current command arguments from stdin when the wrapper passes them through, falls back to the Claude session transcript when needed, chooses `model`, `mode`, and `effort`, and then launches a child `claude -p` session exactly once.
 
 ## Behavior
 

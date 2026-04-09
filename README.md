@@ -21,7 +21,7 @@ The demo assets are rendered from a real interactive `claude` terminal session. 
 - `/parent`
 - `/parent-no-opus`
 
-Both commands recover the current slash-command arguments from the Claude session transcript, choose an appropriate `model`, `mode`, and `effort`, and then launch one child `claude -p` run.
+Both commands first read the current slash-command arguments from stdin when the wrapper passes them through, fall back to the Claude session transcript when needed, choose an appropriate `model`, `mode`, and `effort`, and then launch one child `claude -p` run.
 
 The user-facing output is intentionally plain. You see a normal Claude response, not an internal routing report.
 
@@ -139,7 +139,7 @@ python3 scripts/render_interactive_demo.py
 - `/parent`
 - `/parent-no-opus`
 
-두 명령 모두 현재 slash-command 인자를 Claude 세션 transcript에서 복구한 뒤, 적절한 `model`, `mode`, `effort`를 선택하고 child `claude -p`를 정확히 한 번 실행한다.
+두 명령 모두 wrapper가 인자를 넘겨주면 먼저 stdin에서 현재 slash-command 인자를 읽고, 필요할 때만 Claude 세션 transcript를 fallback으로 사용한 뒤, 적절한 `model`, `mode`, `effort`를 선택하고 child `claude -p`를 정확히 한 번 실행한다.
 
 사용자에게는 라우팅 리포트를 노출하지 않는다. 결과는 일반적인 Claude 응답처럼 보이게 유지한다.
 
