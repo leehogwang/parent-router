@@ -25,7 +25,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --window 7d --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest --count-only --fields timestamp,model"
+                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --window 7d --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest --count-only --fields core"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -46,7 +46,10 @@ class ParentStatsTests(unittest.TestCase):
         self.assertTrue(args.show_paths)
         self.assertEqual(args.sort, "oldest")
         self.assertTrue(args.count_only)
-        self.assertEqual(args.fields, ("timestamp", "model"))
+        self.assertEqual(
+            args.fields,
+            ("timestamp", "model", "mode", "status", "confidence"),
+        )
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
@@ -77,6 +80,12 @@ class ParentStatsTests(unittest.TestCase):
             parent_stats.parse_raw_args("--fields nope")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--fields model")
+
+    def test_parse_fields_supports_core_preset(self) -> None:
+        self.assertEqual(
+            parent_stats.parse_fields("core"),
+            ("timestamp", "model", "mode", "status", "confidence"),
+        )
 
     def test_load_run_records_and_format_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

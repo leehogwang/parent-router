@@ -33,6 +33,9 @@ VALID_FIELDS = {
     "request_text",
     "source_path",
 }
+FIELD_PRESETS = {
+    "core": ("timestamp", "model", "mode", "status", "confidence"),
+}
 
 
 @dataclass
@@ -86,6 +89,8 @@ def parse_fields(raw_value: str) -> tuple[str, ...]:
     fields = tuple(field.strip() for field in raw_value.split(",") if field.strip())
     if not fields:
         raise ValueError("--fields must list one or more field names")
+    if len(fields) == 1 and fields[0] in FIELD_PRESETS:
+        return FIELD_PRESETS[fields[0]]
     invalid = [field for field in fields if field not in VALID_FIELDS]
     if invalid:
         raise ValueError(
