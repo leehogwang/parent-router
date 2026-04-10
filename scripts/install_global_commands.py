@@ -7,13 +7,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "parent.py"
+STATS_SCRIPT_PATH = ROOT / "scripts" / "parent_stats.py"
 TARGET_DIR = Path.home() / ".claude" / "commands"
 
 
-def command_body(command_name: str, description: str) -> str:
+def command_body(
+    command_name: str,
+    description: str,
+    script_path: Path = SCRIPT_PATH,
+    argument_hint: str = "<goal>",
+    script_args: str = '--session-id "${CLAUDE_SESSION_ID}" --command-name "{command_name}"',
+) -> str:
+    rendered_script_args = script_args.replace("{command_name}", command_name)
     return f"""---
 description: {description}
-argument-hint: <goal>
+argument-hint: {argument_hint}
 allowed-tools: Bash
 disable-model-invocation: true
 ---
@@ -22,7 +30,7 @@ You are handling a user-invoked `{command_name}` command.
 Do this:
 1. Use Bash exactly once with a timeout of `900000` milliseconds and `run_in_background` set to `false`.
 2. Run:
-   `PARENTS_PROJECT_ROOT="$PWD" python3 "{SCRIPT_PATH}" --session-id "${{CLAUDE_SESSION_ID}}" --command-name "{command_name}" <<'__PARENTS_ARGS__'
+   `PARENTS_PROJECT_ROOT="$PWD" python3 "{script_path}" {rendered_script_args} <<'__PARENTS_ARGS__'
 $ARGUMENTS
 __PARENTS_ARGS__`
 3. Wait for it to finish.
@@ -49,6 +57,13 @@ def main() -> int:
         "parent-no-opus.md": command_body(
             "/parent-no-opus",
             "Route a request without ever using Opus, while still selecting mode and effort automatically",
+        ),
+        "parent-stats.md": command_body(
+            "/parent-stats",
+            "Inspect recent /parent routing logs with aggregated stats",
+            script_path=STATS_SCRIPT_PATH,
+            argument_hint="[--limit N] [--date YYYY-MM-DD]",
+            script_args="",
         ),
     }
     for name, content in targets.items():
