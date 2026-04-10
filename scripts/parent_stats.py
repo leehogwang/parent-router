@@ -120,6 +120,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
     model_counts: Counter[str] = Counter()
     mode_counts: Counter[str] = Counter()
     confidence_counts: Counter[str] = Counter()
+    reason_code_counts: Counter[str] = Counter()
 
     for record in records:
         status_counts[execution_status(record)] += 1
@@ -127,6 +128,8 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         model_counts[record.get("selected_model") or "(unknown)"] += 1
         mode_counts[record.get("selected_mode") or "(unknown)"] += 1
         confidence_counts[record.get("confidence") or "(unknown)"] += 1
+        for reason_code in record.get("reason_codes") or []:
+            reason_code_counts[reason_code] += 1
 
     lines = header + [
         f"Status: {format_counter(status_counts)}",
@@ -134,6 +137,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         f"Models: {format_counter(model_counts)}",
         f"Modes: {format_counter(mode_counts)}",
         f"Confidence: {format_counter(confidence_counts)}",
+        f"Reason codes: {format_counter(reason_code_counts)}",
         "Recent runs:",
     ]
     for record in records:

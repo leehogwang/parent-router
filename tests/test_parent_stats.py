@@ -49,6 +49,7 @@ class ParentStatsTests(unittest.TestCase):
                     "selected_mode": "plan",
                     "confidence": "high",
                     "execution_status": "ok",
+                    "reason_codes": ["HIGH_RISK_CHANGE", "GREENFIELD_SYSTEM_REQUEST"],
                     "request_text": "Plan a migration for auth",
                 },
                 {
@@ -58,6 +59,7 @@ class ParentStatsTests(unittest.TestCase):
                     "selected_mode": "execute",
                     "confidence": "medium",
                     "execution_status": None,
+                    "reason_codes": ["SIMPLE_BOUNDED_TASK"],
                     "request_text": "Rename one variable safely",
                 },
             ]
@@ -77,6 +79,9 @@ class ParentStatsTests(unittest.TestCase):
         self.assertIn("Status: ok=1", report)
         self.assertIn("Profiles: parent=1", report)
         self.assertIn("Models: opus=1", report)
+        self.assertIn(
+            "Reason codes: GREENFIELD_SYSTEM_REQUEST=1, HIGH_RISK_CHANGE=1", report
+        )
         self.assertIn("Recent runs:", report)
         self.assertIn("Plan a migration for auth", report)
         self.assertNotIn("Rename one variable safely", report)
