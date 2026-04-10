@@ -44,7 +44,7 @@ The user-facing output is intentionally plain. You see a normal Claude response,
 
 `/parent-no-opus` rejects `--model opus`.
 
-`/parent-stats` supports `--limit N|0`, `--date YYYY-MM-DD`, `--since YYYY-MM-DD`, `--until YYYY-MM-DD`, `--window Nd`, `--status ok|failed|dry-run`, `--profile parent|parent-no-opus`, `--mode plan|execute`, `--model haiku|sonnet|opus`, `--confidence high|medium|low`, `--format text|tsv|json`, `--fields a,b,c|core|debug|all`, `--reasons-only`, `--fail-if-empty`, `--summary-only`, `--show-paths`, `--sort newest|oldest`, and `--count-only`.
+`/parent-stats` supports `--limit N|0`, `--date YYYY-MM-DD`, `--since YYYY-MM-DD`, `--until YYYY-MM-DD`, `--window Nd`, `--status ok|failed|dry-run`, `--profile parent|parent-no-opus`, `--mode plan|execute`, `--model haiku|sonnet|opus`, `--confidence high|medium|low`, `--format text|tsv|json`, `--fields a,b,c|core|debug|all`, `--group-by model|mode|profile|status`, `--reasons-only`, `--fail-if-empty`, `--summary-only`, `--show-paths`, `--sort newest|oldest`, and `--count-only`.
 
 ### Installation
 
@@ -62,7 +62,7 @@ Interactive:
 claude
 /parent fix the flaky multi-file integration test
 /parent-no-opus --dry-run Design a new authentication architecture with migration planning
-/parent-stats --window 7d --format tsv --fields all --limit 0
+/parent-stats --window 7d --group-by model --limit 0
 ```
 
 One-shot:
@@ -71,7 +71,7 @@ One-shot:
 claude -p '/parent --dry-run rename one variable'
 claude -p '/parent --why fix the flaky multi-file integration test'
 claude -p '/parent-no-opus --dry-run Design a new authentication architecture with migration planning'
-claude -p '/parent-stats --window 7d --format json --fields all --limit 0'
+claude -p '/parent-stats --window 7d --group-by model --limit 0'
 ```
 
 ### How routing works
@@ -104,6 +104,7 @@ python3 scripts/parent_stats.py --since 2026-04-10 --summary-only --show-paths -
 python3 scripts/parent_stats.py --window 7d --summary-only --show-paths --sort oldest --limit 0
 python3 scripts/parent_stats.py --window 7d --count-only --limit 0
 python3 scripts/parent_stats.py --window 7d --format tsv --fields all --limit 0
+python3 scripts/parent_stats.py --window 7d --group-by model --limit 0
 ```
 
 The stats report also aggregates `reason_codes`, so you can see which routing rules fired most often across recent runs.
@@ -135,6 +136,8 @@ Use `--fields core` when you want a stable minimal export of timestamp, model, m
 Use `--fields debug` when you want a debugging-oriented export with reason codes and source paths included.
 
 Use `--fields all` when you want the full stable record projection through a preset alias.
+
+Use `--group-by model|mode|profile|status` when you want the text summary reduced to one explicit aggregation axis.
 
 Use `--sort oldest` when you want the earliest matching logs first instead of the default newest-first behavior.
 
