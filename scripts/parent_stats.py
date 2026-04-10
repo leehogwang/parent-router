@@ -21,6 +21,7 @@ VALID_MODES = {"plan", "execute"}
 VALID_MODELS = {"haiku", "sonnet", "opus"}
 VALID_CONFIDENCE = {"high", "medium", "low"}
 VALID_FORMATS = {"json", "text", "tsv"}
+VALID_SORT = {"newest", "oldest"}
 
 
 @dataclass
@@ -37,6 +38,7 @@ class StatsArgs:
     fail_if_empty: bool = False
     summary_only: bool = False
     show_paths: bool = False
+    sort: str = "newest"
 
 
 def detect_workspace_root() -> Path:
@@ -61,6 +63,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--fail-if-empty", action="store_true")
     parser.add_argument("--summary-only", action="store_true")
     parser.add_argument("--show-paths", action="store_true")
+    parser.add_argument("--sort")
     namespace = parser.parse_args(tokens)
     if namespace.limit <= 0:
         raise ValueError("--limit must be greater than zero")
@@ -81,6 +84,8 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         raise ValueError("--confidence must be one of: high, low, medium")
     if namespace.format and namespace.format not in VALID_FORMATS:
         raise ValueError("--format must be one of: json, text, tsv")
+    if namespace.sort and namespace.sort not in VALID_SORT:
+        raise ValueError("--sort must be one of: newest, oldest")
     return StatsArgs(
         limit=namespace.limit,
         date=namespace.date,
@@ -94,6 +99,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         fail_if_empty=namespace.fail_if_empty,
         summary_only=namespace.summary_only,
         show_paths=namespace.show_paths,
+        sort=namespace.sort or "newest",
     )
 
 
@@ -109,12 +115,13 @@ def iter_run_json_files(workspace_root: Path, args: StatsArgs) -> list[Path]:
     runs_root = workspace_root / RUNS_DIR
     if not runs_root.exists():
         return []
+    reverse = args.sort == "newest"
     if args.date:
         date_dir = runs_root / args.date
         if not date_dir.exists():
             return []
-        return sorted(date_dir.glob("*.json"), reverse=True)
-    return sorted(runs_root.glob("*/*.json"), reverse=True)
+        return sorted(date_dir.glob("*.json"), reverse=reverse)
+    return sorted(runs_root.glob("*/*.json"), reverse=reverse)
 
 
 def execution_status(record: dict) -> str:
@@ -217,6 +224,7 @@ def format_json(records: list[dict], args: StatsArgs) -> str:
             "fail_if_empty": args.fail_if_empty,
             "summary_only": args.summary_only,
             "show_paths": args.show_paths,
+            "sort": args.sort,
         },
         "runs_analyzed": len(records),
     }
@@ -256,6 +264,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         header = ["Parent Run Stats"]
         if args.date:
             header.append(f"Date filter: {args.date}")
+        header.append(f"Sort order: {args.sort}")
         if args.status:
             header.append(f"Status filter: {args.status}")
         if args.profile:
@@ -284,6 +293,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
     header = ["Parent Run Stats"]
     if args.date:
         header.append(f"Date filter: {args.date}")
+    header.append(f"Sort order: {args.sort}")
     if args.status:
         header.append(f"Status filter: {args.status}")
     if args.profile:

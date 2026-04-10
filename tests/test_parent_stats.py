@@ -24,7 +24,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths"
+                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -40,6 +40,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertTrue(args.fail_if_empty)
         self.assertTrue(args.summary_only)
         self.assertTrue(args.show_paths)
+        self.assertEqual(args.sort, "oldest")
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
@@ -58,6 +59,8 @@ class ParentStatsTests(unittest.TestCase):
             parent_stats.parse_raw_args("--confidence unsure")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--format csv")
+        with self.assertRaises(ValueError):
+            parent_stats.parse_raw_args("--sort random")
 
     def test_load_run_records_and_format_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -100,6 +103,7 @@ class ParentStatsTests(unittest.TestCase):
                 model="opus",
                 confidence="high",
                 output_format="text",
+                sort="newest",
             )
             paths = parent_stats.iter_run_json_files(root, args)
             loaded = parent_stats.load_run_records(paths, args)
@@ -111,6 +115,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertIn("Mode filter: plan", report)
         self.assertIn("Model filter: opus", report)
         self.assertIn("Confidence filter: high", report)
+        self.assertIn("Sort order: newest", report)
         self.assertIn("Runs analyzed: 1", report)
         self.assertIn("Status: ok=1", report)
         self.assertIn("Profiles: parent=1", report)
@@ -165,6 +170,7 @@ class ParentStatsTests(unittest.TestCase):
         )
         data = json.loads(output)
         self.assertEqual(data["runs_analyzed"], 1)
+        self.assertEqual(data["filters"]["sort"], "newest")
         self.assertEqual(data["records"][0]["model"], "opus")
         self.assertEqual(data["records"][0]["reason_codes"], ["HIGH_RISK_CHANGE"])
 
@@ -212,6 +218,7 @@ class ParentStatsTests(unittest.TestCase):
             parent_stats.StatsArgs(summary_only=True, model="opus", show_paths=True),
         )
         self.assertIn("Model filter: opus", output)
+        self.assertIn("Sort order: newest", output)
         self.assertIn("Reason codes: HIGH_RISK_CHANGE=1", output)
         self.assertIn("Included paths:", output)
         self.assertIn("20260410T100000Z-parent.json", output)
@@ -238,6 +245,37 @@ class ParentStatsTests(unittest.TestCase):
         self.assertFalse(data["filters"]["fail_if_empty"])
         self.assertFalse(data["filters"]["summary_only"])
         self.assertFalse(data["filters"]["show_paths"])
+
+    def test_sort_oldest_prefers_oldest_logs_first(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            run_dir = root / ".parent" / "runs" / "2026-04-10"
+            run_dir.mkdir(parents=True)
+            older = run_dir / "20260410T090000Z-parent.json"
+            newer = run_dir / "20260410T100000Z-parent.json"
+            older.write_text(
+                json.dumps(
+                    {
+                        "timestamp": "2026-04-10T09:00:00+00:00",
+                        "request_text": "Older request",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            newer.write_text(
+                json.dumps(
+                    {
+                        "timestamp": "2026-04-10T10:00:00+00:00",
+                        "request_text": "Newer request",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            args = parent_stats.StatsArgs(limit=1, sort="oldest")
+            loaded = parent_stats.load_run_records(
+                parent_stats.iter_run_json_files(root, args), args
+            )
+        self.assertEqual(loaded[0]["request_text"], "Older request")
 
     def test_show_paths_exposes_loaded_file_locations(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
