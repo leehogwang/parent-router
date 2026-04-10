@@ -34,6 +34,7 @@ class StatsArgs:
     confidence: str | None = None
     output_format: str = "text"
     reasons_only: bool = False
+    fail_if_empty: bool = False
 
 
 def detect_workspace_root() -> Path:
@@ -55,6 +56,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--confidence")
     parser.add_argument("--format")
     parser.add_argument("--reasons-only", action="store_true")
+    parser.add_argument("--fail-if-empty", action="store_true")
     namespace = parser.parse_args(tokens)
     if namespace.limit <= 0:
         raise ValueError("--limit must be greater than zero")
@@ -85,6 +87,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         confidence=namespace.confidence,
         output_format=namespace.format or "text",
         reasons_only=namespace.reasons_only,
+        fail_if_empty=namespace.fail_if_empty,
     )
 
 
@@ -200,6 +203,7 @@ def format_json(records: list[dict], args: StatsArgs) -> str:
             "model": args.model,
             "confidence": args.confidence,
             "reasons_only": args.reasons_only,
+            "fail_if_empty": args.fail_if_empty,
         },
         "runs_analyzed": len(records),
     }
@@ -324,6 +328,8 @@ def main(argv: list[str] | None = None) -> int:
     paths = iter_run_json_files(workspace_root, args)
     records = load_run_records(paths, args)
     print(format_report(records, args))
+    if args.fail_if_empty and not records:
+        return 1
     return 0
 
 

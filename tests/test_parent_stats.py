@@ -24,7 +24,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only"
+                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -37,6 +37,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertEqual(args.confidence, "high")
         self.assertEqual(args.output_format, "json")
         self.assertTrue(args.reasons_only)
+        self.assertTrue(args.fail_if_empty)
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
@@ -206,6 +207,8 @@ class ParentStatsTests(unittest.TestCase):
             {"GREENFIELD_SYSTEM_REQUEST": 1, "HIGH_RISK_CHANGE": 2},
         )
         self.assertNotIn("records", data)
+        self.assertTrue(data["filters"]["reasons_only"])
+        self.assertFalse(data["filters"]["fail_if_empty"])
 
     def test_profile_filter_excludes_other_profiles(self) -> None:
         records = [
@@ -332,6 +335,21 @@ class ParentStatsTests(unittest.TestCase):
                         ["parent_stats.py", "--date", "2026-04-10"]
                     )
         self.assertEqual(exit_code, 0)
+        self.assertIn("No run logs found.", stdout.getvalue())
+
+    def test_main_fails_when_empty_results_are_forbidden(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with mock.patch.dict(
+                parent_stats.os.environ,
+                {"PARENTS_PROJECT_ROOT": tmpdir},
+                clear=False,
+            ):
+                stdout = io.StringIO()
+                with mock.patch("sys.stdout", stdout):
+                    exit_code = parent_stats.main(
+                        ["parent_stats.py", "--date", "2026-04-10", "--fail-if-empty"]
+                    )
+        self.assertEqual(exit_code, 1)
         self.assertIn("No run logs found.", stdout.getvalue())
 
 
