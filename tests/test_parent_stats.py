@@ -25,7 +25,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --window 7d --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest --count-only"
+                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --window 7d --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest --count-only --fields timestamp,model"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -46,6 +46,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertTrue(args.show_paths)
         self.assertEqual(args.sort, "oldest")
         self.assertTrue(args.count_only)
+        self.assertEqual(args.fields, ("timestamp", "model"))
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
@@ -72,6 +73,10 @@ class ParentStatsTests(unittest.TestCase):
             parent_stats.parse_raw_args("--format csv")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--sort random")
+        with self.assertRaises(ValueError):
+            parent_stats.parse_raw_args("--fields nope")
+        with self.assertRaises(ValueError):
+            parent_stats.parse_raw_args("--fields model")
 
     def test_load_run_records_and_format_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -169,6 +174,27 @@ class ParentStatsTests(unittest.TestCase):
             output,
         )
 
+    def test_format_report_supports_tsv_field_selection(self) -> None:
+        records = [
+            {
+                "timestamp": "2026-04-10T10:00:00+00:00",
+                "profile": "parent",
+                "selected_model": "opus",
+                "selected_mode": "plan",
+                "confidence": "high",
+                "execution_status": "ok",
+                "reason_codes": ["HIGH_RISK_CHANGE"],
+                "request_text": "Plan a migration for auth",
+            }
+        ]
+        output = parent_stats.format_report(
+            records,
+            parent_stats.StatsArgs(output_format="tsv", fields=("timestamp", "model")),
+        )
+        self.assertIn("timestamp\tmodel", output)
+        self.assertIn("2026-04-10T10:00:00+00:00\topus", output)
+        self.assertNotIn("profile", output)
+
     def test_format_report_supports_json_output(self) -> None:
         records = [
             {
@@ -190,6 +216,29 @@ class ParentStatsTests(unittest.TestCase):
         self.assertEqual(data["filters"]["sort"], "newest")
         self.assertEqual(data["records"][0]["model"], "opus")
         self.assertEqual(data["records"][0]["reason_codes"], ["HIGH_RISK_CHANGE"])
+
+    def test_format_report_supports_json_field_selection(self) -> None:
+        records = [
+            {
+                "timestamp": "2026-04-10T10:00:00+00:00",
+                "profile": "parent",
+                "selected_model": "opus",
+                "selected_mode": "plan",
+                "confidence": "high",
+                "execution_status": "ok",
+                "reason_codes": ["HIGH_RISK_CHANGE"],
+                "request_text": "Plan a migration for auth",
+            }
+        ]
+        output = parent_stats.format_report(
+            records,
+            parent_stats.StatsArgs(output_format="json", fields=("timestamp", "model")),
+        )
+        data = json.loads(output)
+        self.assertEqual(
+            data["records"][0],
+            {"timestamp": "2026-04-10T10:00:00+00:00", "model": "opus"},
+        )
 
     def test_format_report_supports_reasons_only_output(self) -> None:
         records = [

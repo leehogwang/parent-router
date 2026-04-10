@@ -22,6 +22,17 @@ VALID_MODELS = {"haiku", "sonnet", "opus"}
 VALID_CONFIDENCE = {"high", "medium", "low"}
 VALID_FORMATS = {"json", "text", "tsv"}
 VALID_SORT = {"newest", "oldest"}
+VALID_FIELDS = {
+    "timestamp",
+    "profile",
+    "model",
+    "mode",
+    "status",
+    "confidence",
+    "reason_codes",
+    "request_text",
+    "source_path",
+}
 
 
 @dataclass
@@ -43,6 +54,7 @@ class StatsArgs:
     show_paths: bool = False
     sort: str = "newest"
     count_only: bool = False
+    fields: tuple[str, ...] = ()
 
 
 def detect_workspace_root() -> Path:
@@ -70,6 +82,32 @@ def window_start_date(raw_value: str) -> str:
     return (current_date() - timedelta(days=days - 1)).isoformat()
 
 
+def parse_fields(raw_value: str) -> tuple[str, ...]:
+    fields = tuple(field.strip() for field in raw_value.split(",") if field.strip())
+    if not fields:
+        raise ValueError("--fields must list one or more field names")
+    invalid = [field for field in fields if field not in VALID_FIELDS]
+    if invalid:
+        raise ValueError(
+            "--fields contains invalid names: " + ", ".join(sorted(invalid))
+        )
+    return fields
+
+
+def record_view(record: dict) -> dict[str, object]:
+    return {
+        "timestamp": record.get("timestamp"),
+        "profile": execution_profile(record),
+        "model": execution_model(record),
+        "mode": execution_mode(record),
+        "status": execution_status(record),
+        "confidence": execution_confidence(record),
+        "reason_codes": record.get("reason_codes") or [],
+        "request_text": compact_request(record.get("request_text") or ""),
+        "source_path": source_path(record),
+    }
+
+
 def parse_raw_args(raw_args: str) -> StatsArgs:
     tokens = shlex.split(raw_args)
     parser = argparse.ArgumentParser(add_help=False)
@@ -90,6 +128,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--show-paths", action="store_true")
     parser.add_argument("--sort")
     parser.add_argument("--count-only", action="store_true")
+    parser.add_argument("--fields")
     namespace = parser.parse_args(tokens)
     if namespace.limit < 0:
         raise ValueError("--limit must be zero or greater")
@@ -124,6 +163,11 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         raise ValueError("--format must be one of: json, text, tsv")
     if namespace.sort and namespace.sort not in VALID_SORT:
         raise ValueError("--sort must be one of: newest, oldest")
+    parsed_fields: tuple[str, ...] = ()
+    if namespace.fields:
+        parsed_fields = parse_fields(namespace.fields)
+        if namespace.format not in {"json", "tsv"}:
+            raise ValueError("--fields requires --format json or --format tsv")
     return StatsArgs(
         limit=namespace.limit,
         date=namespace.date,
@@ -142,6 +186,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         show_paths=namespace.show_paths,
         sort=namespace.sort or "newest",
         count_only=namespace.count_only,
+        fields=parsed_fields,
     )
 
 
@@ -242,25 +287,30 @@ def compact_request(text: str) -> str:
     return " ".join(text.split())
 
 
-def format_tsv(records: list[dict]) -> str:
-    lines = [
-        "timestamp\tprofile\tmodel\tmode\tstatus\tconfidence\treason_codes\trequest_text"
-    ]
+def format_tsv(records: list[dict], args: StatsArgs) -> str:
+    fields = args.fields or (
+        "timestamp",
+        "profile",
+        "model",
+        "mode",
+        "status",
+        "confidence",
+        "reason_codes",
+        "request_text",
+    )
+    lines = ["\t".join(fields)]
     for record in records:
-        lines.append(
-            "\t".join(
-                [
-                    record.get("timestamp") or "",
-                    execution_profile(record),
-                    execution_model(record),
-                    execution_mode(record),
-                    execution_status(record),
-                    execution_confidence(record),
-                    ",".join(record.get("reason_codes") or []),
-                    compact_request(record.get("request_text") or ""),
-                ]
-            )
-        )
+        view = record_view(record)
+        values: list[str] = []
+        for field in fields:
+            value = view[field]
+            if isinstance(value, list):
+                values.append(",".join(str(item) for item in value))
+            elif value is None:
+                values.append("")
+            else:
+                values.append(str(value))
+        lines.append("\t".join(values))
     return "\n".join(lines)
 
 
@@ -292,18 +342,19 @@ def format_json(records: list[dict], args: StatsArgs) -> str:
                 reason_code_counts[reason_code] += 1
         payload["reason_codes"] = dict(sorted(reason_code_counts.items()))
     else:
+        fields = args.fields or (
+            "timestamp",
+            "profile",
+            "model",
+            "mode",
+            "status",
+            "confidence",
+            "reason_codes",
+            "request_text",
+            "source_path",
+        )
         payload["records"] = [
-            {
-                "timestamp": record.get("timestamp"),
-                "profile": execution_profile(record),
-                "model": execution_model(record),
-                "mode": execution_mode(record),
-                "status": execution_status(record),
-                "confidence": execution_confidence(record),
-                "reason_codes": record.get("reason_codes") or [],
-                "request_text": compact_request(record.get("request_text") or ""),
-                "source_path": source_path(record),
-            }
+            {field: record_view(record)[field] for field in fields}
             for record in records
         ]
     return json.dumps(payload, ensure_ascii=False, indent=2)
@@ -351,7 +402,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         return "\n".join(header)
 
     if args.output_format == "tsv":
-        return format_tsv(records)
+        return format_tsv(records, args)
 
     header = ["Parent Run Stats"]
     if args.date:
