@@ -20,7 +20,7 @@ VALID_PROFILES = {"parent", "parent-no-opus"}
 VALID_MODES = {"plan", "execute"}
 VALID_MODELS = {"haiku", "sonnet", "opus"}
 VALID_CONFIDENCE = {"high", "medium", "low"}
-VALID_FORMATS = {"text", "tsv"}
+VALID_FORMATS = {"json", "text", "tsv"}
 
 
 @dataclass
@@ -74,7 +74,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     if namespace.confidence and namespace.confidence not in VALID_CONFIDENCE:
         raise ValueError("--confidence must be one of: high, low, medium")
     if namespace.format and namespace.format not in VALID_FORMATS:
-        raise ValueError("--format must be one of: text, tsv")
+        raise ValueError("--format must be one of: json, text, tsv")
     return StatsArgs(
         limit=namespace.limit,
         date=namespace.date,
@@ -190,7 +190,46 @@ def format_tsv(records: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def format_json(records: list[dict], args: StatsArgs) -> str:
+    payload = {
+        "filters": {
+            "date": args.date,
+            "status": args.status,
+            "profile": args.profile,
+            "mode": args.mode,
+            "model": args.model,
+            "confidence": args.confidence,
+            "reasons_only": args.reasons_only,
+        },
+        "runs_analyzed": len(records),
+    }
+    if args.reasons_only:
+        reason_code_counts: Counter[str] = Counter()
+        for record in records:
+            for reason_code in record.get("reason_codes") or []:
+                reason_code_counts[reason_code] += 1
+        payload["reason_codes"] = dict(sorted(reason_code_counts.items()))
+    else:
+        payload["records"] = [
+            {
+                "timestamp": record.get("timestamp"),
+                "profile": execution_profile(record),
+                "model": execution_model(record),
+                "mode": execution_mode(record),
+                "status": execution_status(record),
+                "confidence": execution_confidence(record),
+                "reason_codes": record.get("reason_codes") or [],
+                "request_text": compact_request(record.get("request_text") or ""),
+            }
+            for record in records
+        ]
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
 def format_report(records: list[dict], args: StatsArgs) -> str:
+    if args.output_format == "json":
+        return format_json(records, args)
+
     if args.reasons_only:
         reason_code_counts: Counter[str] = Counter()
         for record in records:

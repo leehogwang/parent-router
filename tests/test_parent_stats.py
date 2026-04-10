@@ -24,7 +24,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format tsv --reasons-only"
+                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -35,7 +35,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertEqual(args.mode, "plan")
         self.assertEqual(args.model, "opus")
         self.assertEqual(args.confidence, "high")
-        self.assertEqual(args.output_format, "tsv")
+        self.assertEqual(args.output_format, "json")
         self.assertTrue(args.reasons_only)
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
@@ -144,6 +144,27 @@ class ParentStatsTests(unittest.TestCase):
             output,
         )
 
+    def test_format_report_supports_json_output(self) -> None:
+        records = [
+            {
+                "timestamp": "2026-04-10T10:00:00+00:00",
+                "profile": "parent",
+                "selected_model": "opus",
+                "selected_mode": "plan",
+                "confidence": "high",
+                "execution_status": "ok",
+                "reason_codes": ["HIGH_RISK_CHANGE"],
+                "request_text": "Plan a migration for auth",
+            }
+        ]
+        output = parent_stats.format_report(
+            records, parent_stats.StatsArgs(output_format="json")
+        )
+        data = json.loads(output)
+        self.assertEqual(data["runs_analyzed"], 1)
+        self.assertEqual(data["records"][0]["model"], "opus")
+        self.assertEqual(data["records"][0]["reason_codes"], ["HIGH_RISK_CHANGE"])
+
     def test_format_report_supports_reasons_only_output(self) -> None:
         records = [
             {
@@ -168,6 +189,23 @@ class ParentStatsTests(unittest.TestCase):
             "Reason codes: GREENFIELD_SYSTEM_REQUEST=1, HIGH_RISK_CHANGE=2", output
         )
         self.assertNotIn("Recent runs:", output)
+
+    def test_format_report_supports_reasons_only_json_output(self) -> None:
+        records = [
+            {"reason_codes": ["HIGH_RISK_CHANGE", "GREENFIELD_SYSTEM_REQUEST"]},
+            {"reason_codes": ["HIGH_RISK_CHANGE"]},
+        ]
+        output = parent_stats.format_report(
+            records,
+            parent_stats.StatsArgs(output_format="json", reasons_only=True),
+        )
+        data = json.loads(output)
+        self.assertEqual(data["runs_analyzed"], 2)
+        self.assertEqual(
+            data["reason_codes"],
+            {"GREENFIELD_SYSTEM_REQUEST": 1, "HIGH_RISK_CHANGE": 2},
+        )
+        self.assertNotIn("records", data)
 
     def test_profile_filter_excludes_other_profiles(self) -> None:
         records = [
