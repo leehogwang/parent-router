@@ -29,6 +29,7 @@ class StatsArgs:
     limit: int = 10
     date: str | None = None
     since: str | None = None
+    until: str | None = None
     status: str | None = None
     profile: str | None = None
     mode: str | None = None
@@ -55,6 +56,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--date")
     parser.add_argument("--since")
+    parser.add_argument("--until")
     parser.add_argument("--status")
     parser.add_argument("--profile")
     parser.add_argument("--mode")
@@ -79,6 +81,11 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
             datetime.strptime(namespace.since, "%Y-%m-%d")
         except ValueError as exc:
             raise ValueError("--since must use YYYY-MM-DD") from exc
+    if namespace.until:
+        try:
+            datetime.strptime(namespace.until, "%Y-%m-%d")
+        except ValueError as exc:
+            raise ValueError("--until must use YYYY-MM-DD") from exc
     if namespace.status and namespace.status not in VALID_STATUSES:
         raise ValueError("--status must be one of: dry-run, failed, ok")
     if namespace.profile and namespace.profile not in VALID_PROFILES:
@@ -97,6 +104,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         limit=namespace.limit,
         date=namespace.date,
         since=namespace.since,
+        until=namespace.until,
         status=namespace.status,
         profile=namespace.profile,
         mode=namespace.mode,
@@ -132,6 +140,8 @@ def iter_run_json_files(workspace_root: Path, args: StatsArgs) -> list[Path]:
     date_dirs = [path for path in runs_root.iterdir() if path.is_dir()]
     if args.since:
         date_dirs = [path for path in date_dirs if path.name >= args.since]
+    if args.until:
+        date_dirs = [path for path in date_dirs if path.name <= args.until]
     json_paths: list[Path] = []
     for date_dir in sorted(date_dirs, reverse=reverse):
         json_paths.extend(sorted(date_dir.glob("*.json"), reverse=reverse))
@@ -230,6 +240,7 @@ def format_json(records: list[dict], args: StatsArgs) -> str:
         "filters": {
             "date": args.date,
             "since": args.since,
+            "until": args.until,
             "status": args.status,
             "profile": args.profile,
             "mode": args.mode,
@@ -281,6 +292,8 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
             header.append(f"Date filter: {args.date}")
         if args.since:
             header.append(f"Since filter: {args.since}")
+        if args.until:
+            header.append(f"Until filter: {args.until}")
         header.append(f"Sort order: {args.sort}")
         if args.status:
             header.append(f"Status filter: {args.status}")
@@ -312,6 +325,8 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         header.append(f"Date filter: {args.date}")
     if args.since:
         header.append(f"Since filter: {args.since}")
+    if args.until:
+        header.append(f"Until filter: {args.until}")
     header.append(f"Sort order: {args.sort}")
     if args.status:
         header.append(f"Status filter: {args.status}")
