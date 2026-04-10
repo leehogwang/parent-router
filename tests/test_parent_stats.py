@@ -24,12 +24,13 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest"
+                "--limit 5 --date 2026-04-10 --since 2026-04-09 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
         self.assertEqual(args.limit, 5)
         self.assertEqual(args.date, "2026-04-10")
+        self.assertEqual(args.since, "2026-04-09")
         self.assertEqual(args.status, "ok")
         self.assertEqual(args.profile, "parent")
         self.assertEqual(args.mode, "plan")
@@ -47,6 +48,8 @@ class ParentStatsTests(unittest.TestCase):
             parent_stats.parse_raw_args("--limit 0")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--date 2026/04/10")
+        with self.assertRaises(ValueError):
+            parent_stats.parse_raw_args("--since 2026/04/10")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--status maybe")
         with self.assertRaises(ValueError):
@@ -97,6 +100,7 @@ class ParentStatsTests(unittest.TestCase):
             args = parent_stats.StatsArgs(
                 limit=2,
                 date="2026-04-10",
+                since="2026-04-09",
                 status="ok",
                 profile="parent",
                 mode="plan",
@@ -111,6 +115,7 @@ class ParentStatsTests(unittest.TestCase):
 
         self.assertEqual(len(loaded), 1)
         self.assertIn("Status filter: ok", report)
+        self.assertIn("Since filter: 2026-04-09", report)
         self.assertIn("Profile filter: parent", report)
         self.assertIn("Mode filter: plan", report)
         self.assertIn("Model filter: opus", report)
@@ -276,6 +281,26 @@ class ParentStatsTests(unittest.TestCase):
                 parent_stats.iter_run_json_files(root, args), args
             )
         self.assertEqual(loaded[0]["request_text"], "Older request")
+
+    def test_since_filter_excludes_older_date_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            older_dir = root / ".parent" / "runs" / "2026-04-09"
+            newer_dir = root / ".parent" / "runs" / "2026-04-10"
+            older_dir.mkdir(parents=True)
+            newer_dir.mkdir(parents=True)
+            (older_dir / "20260409T100000Z-parent.json").write_text(
+                json.dumps({"request_text": "Older day"}), encoding="utf-8"
+            )
+            (newer_dir / "20260410T100000Z-parent.json").write_text(
+                json.dumps({"request_text": "Newer day"}), encoding="utf-8"
+            )
+            args = parent_stats.StatsArgs(limit=5, since="2026-04-10")
+            loaded = parent_stats.load_run_records(
+                parent_stats.iter_run_json_files(root, args), args
+            )
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0]["request_text"], "Newer day")
 
     def test_show_paths_exposes_loaded_file_locations(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

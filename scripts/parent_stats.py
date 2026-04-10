@@ -28,6 +28,7 @@ VALID_SORT = {"newest", "oldest"}
 class StatsArgs:
     limit: int = 10
     date: str | None = None
+    since: str | None = None
     status: str | None = None
     profile: str | None = None
     mode: str | None = None
@@ -53,6 +54,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--date")
+    parser.add_argument("--since")
     parser.add_argument("--status")
     parser.add_argument("--profile")
     parser.add_argument("--mode")
@@ -72,6 +74,11 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
             datetime.strptime(namespace.date, "%Y-%m-%d")
         except ValueError as exc:
             raise ValueError("--date must use YYYY-MM-DD") from exc
+    if namespace.since:
+        try:
+            datetime.strptime(namespace.since, "%Y-%m-%d")
+        except ValueError as exc:
+            raise ValueError("--since must use YYYY-MM-DD") from exc
     if namespace.status and namespace.status not in VALID_STATUSES:
         raise ValueError("--status must be one of: dry-run, failed, ok")
     if namespace.profile and namespace.profile not in VALID_PROFILES:
@@ -89,6 +96,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     return StatsArgs(
         limit=namespace.limit,
         date=namespace.date,
+        since=namespace.since,
         status=namespace.status,
         profile=namespace.profile,
         mode=namespace.mode,
@@ -121,7 +129,13 @@ def iter_run_json_files(workspace_root: Path, args: StatsArgs) -> list[Path]:
         if not date_dir.exists():
             return []
         return sorted(date_dir.glob("*.json"), reverse=reverse)
-    return sorted(runs_root.glob("*/*.json"), reverse=reverse)
+    date_dirs = [path for path in runs_root.iterdir() if path.is_dir()]
+    if args.since:
+        date_dirs = [path for path in date_dirs if path.name >= args.since]
+    json_paths: list[Path] = []
+    for date_dir in sorted(date_dirs, reverse=reverse):
+        json_paths.extend(sorted(date_dir.glob("*.json"), reverse=reverse))
+    return json_paths
 
 
 def execution_status(record: dict) -> str:
@@ -215,6 +229,7 @@ def format_json(records: list[dict], args: StatsArgs) -> str:
     payload = {
         "filters": {
             "date": args.date,
+            "since": args.since,
             "status": args.status,
             "profile": args.profile,
             "mode": args.mode,
@@ -264,6 +279,8 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         header = ["Parent Run Stats"]
         if args.date:
             header.append(f"Date filter: {args.date}")
+        if args.since:
+            header.append(f"Since filter: {args.since}")
         header.append(f"Sort order: {args.sort}")
         if args.status:
             header.append(f"Status filter: {args.status}")
@@ -293,6 +310,8 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
     header = ["Parent Run Stats"]
     if args.date:
         header.append(f"Date filter: {args.date}")
+    if args.since:
+        header.append(f"Since filter: {args.since}")
     header.append(f"Sort order: {args.sort}")
     if args.status:
         header.append(f"Status filter: {args.status}")
