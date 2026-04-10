@@ -965,6 +965,15 @@ def fallback_transition_hint(decision: RouteDecision) -> str:
     )
 
 
+def profile_transition_hint(profile: Profile, decision: RouteDecision) -> str:
+    if profile.name == "parent-no-opus" and "PROFILE_NO_OPUS" in decision.reason_codes:
+        return (
+            "I stayed on Sonnet and started with a plan because this command excludes Opus "
+            "for broad or risky requests."
+        )
+    return ""
+
+
 def write_logs(
     workspace_root: Path,
     profile: Profile,
@@ -1132,6 +1141,8 @@ def main(argv: list[str] | None = None) -> int:
         output = explain_decision(profile, decision) + "\n\n" + output
     elif fallback_transition_hint(decision):
         output = fallback_transition_hint(decision) + "\n\n" + output
+    elif profile_transition_hint(profile, decision):
+        output = profile_transition_hint(profile, decision) + "\n\n" + output
     print(output.strip())
     return 0
 
