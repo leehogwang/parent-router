@@ -285,6 +285,22 @@ class ParentRouterTests(unittest.TestCase):
         self.assertIn("PARENTS_CLAUDE_BIN", message)
         self.assertIn("Claude CLI", message)
 
+    def test_format_failure_includes_recursive_invocation_hint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            parsed = parent.parse_command_arguments("rename one variable")
+            decision = parent.choose_route(parent.PROFILES["parent"], parsed, root)
+        result = parent.ExecutionResult(
+            ok=False,
+            stdout="",
+            stderr="Recursive /parent invocation is blocked.",
+            exit_code=2,
+        )
+        message = parent.format_failure(decision, result)
+        self.assertIn(
+            "continue the request directly in the current Claude turn", message
+        )
+
     def test_format_failure_includes_stderr_summary_line(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

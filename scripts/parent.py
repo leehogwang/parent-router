@@ -1139,6 +1139,12 @@ def launch_failure_hint(result: ExecutionResult) -> str:
     return ""
 
 
+def recursion_failure_hint(result: ExecutionResult) -> str:
+    if result.stderr.strip() == "Recursive /parent invocation is blocked.":
+        return "Next step: continue the request directly in the current Claude turn instead of invoking `/parent` again."
+    return ""
+
+
 def failure_summary(stderr: str) -> str:
     text = stderr.strip()
     if not text:
@@ -1151,7 +1157,11 @@ def failure_summary(stderr: str) -> str:
 
 def format_failure(decision: RouteDecision, result: ExecutionResult) -> str:
     stderr = summarize_text(result.stderr) or "(empty)"
-    next_step = launch_failure_hint(result) or recovery_hint(decision)
+    next_step = (
+        recursion_failure_hint(result)
+        or launch_failure_hint(result)
+        or recovery_hint(decision)
+    )
     return (
         f"The routed Claude invocation failed with exit code {result.exit_code}.\n\n"
         f"Route: {decision.selected_model} in {decision.selected_mode} mode with {decision.effective_effort} effort.\n\n"
