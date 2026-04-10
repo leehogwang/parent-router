@@ -171,6 +171,18 @@ class ParentRouterTests(unittest.TestCase):
             self.assertEqual(decision.selected_mode, "plan")
             self.assertIn("LOW_CONFIDENCE_SAFE_FALLBACK", decision.reason_codes)
 
+    def test_explain_decision_mentions_low_confidence_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "main.py").write_text("print('hello')\n", encoding="utf-8")
+            parsed = parent.parse_command_arguments(
+                "Help me improve the whole system somehow"
+            )
+            decision = parent.choose_route(parent.PROFILES["parent"], parsed, root)
+        message = parent.explain_decision(parent.PROFILES["parent"], decision)
+        self.assertIn("broad or ambiguous enough", message)
+        self.assertIn("direct execution path would be risky", message)
+
     def test_execute_route_only_runs_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

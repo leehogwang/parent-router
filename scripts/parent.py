@@ -950,6 +950,11 @@ def explain_decision(profile: Profile, decision: RouteDecision) -> str:
     model = decision.selected_model.capitalize()
     mode = decision.selected_mode
     effort = decision.effective_effort
+    if "LOW_CONFIDENCE_SAFE_FALLBACK" in decision.reason_codes:
+        return (
+            f"I'll stay on {model} in {mode} mode with {effort} effort because the request still looks broad or ambiguous enough "
+            "that a direct execution path would be risky."
+        )
     if profile.name == "parent-no-opus" and "PROFILE_NO_OPUS" in decision.reason_codes:
         return (
             f"I'll stay on {model} in {mode} mode with {effort} effort because this command excludes Opus "
