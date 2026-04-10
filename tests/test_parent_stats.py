@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import importlib.util
 import io
 import json
@@ -24,7 +25,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest"
+                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --window 7d --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -32,6 +33,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertEqual(args.date, "2026-04-10")
         self.assertEqual(args.since, "2026-04-09")
         self.assertEqual(args.until, "2026-04-10")
+        self.assertEqual(args.window, "7d")
         self.assertEqual(args.status, "ok")
         self.assertEqual(args.profile, "parent")
         self.assertEqual(args.mode, "plan")
@@ -53,6 +55,8 @@ class ParentStatsTests(unittest.TestCase):
             parent_stats.parse_raw_args("--since 2026/04/10")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--until 2026/04/10")
+        with self.assertRaises(ValueError):
+            parent_stats.parse_raw_args("--window seven")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--status maybe")
         with self.assertRaises(ValueError):
@@ -105,6 +109,7 @@ class ParentStatsTests(unittest.TestCase):
                 date="2026-04-10",
                 since="2026-04-09",
                 until="2026-04-10",
+                window="7d",
                 status="ok",
                 profile="parent",
                 mode="plan",
@@ -120,6 +125,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertEqual(len(loaded), 1)
         self.assertIn("Status filter: ok", report)
         self.assertIn("Since filter: 2026-04-09", report)
+        self.assertIn("Window filter: 7d", report)
         self.assertIn("Until filter: 2026-04-10", report)
         self.assertIn("Profile filter: parent", report)
         self.assertIn("Mode filter: plan", report)
@@ -326,6 +332,29 @@ class ParentStatsTests(unittest.TestCase):
             )
         self.assertEqual(len(loaded), 1)
         self.assertEqual(loaded[0]["request_text"], "Older day")
+
+    def test_window_filter_excludes_older_directories_before_window(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            within_dir = root / ".parent" / "runs" / "2026-04-09"
+            older_dir = root / ".parent" / "runs" / "2026-04-02"
+            within_dir.mkdir(parents=True)
+            older_dir.mkdir(parents=True)
+            (within_dir / "20260409T100000Z-parent.json").write_text(
+                json.dumps({"request_text": "Within window"}), encoding="utf-8"
+            )
+            (older_dir / "20260402T100000Z-parent.json").write_text(
+                json.dumps({"request_text": "Outside window"}), encoding="utf-8"
+            )
+            with mock.patch.object(
+                parent_stats, "current_date", return_value=datetime.date(2026, 4, 10)
+            ):
+                args = parent_stats.StatsArgs(limit=5, window="2d")
+                loaded = parent_stats.load_run_records(
+                    parent_stats.iter_run_json_files(root, args), args
+                )
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0]["request_text"], "Within window")
 
     def test_show_paths_exposes_loaded_file_locations(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import os
 from pathlib import Path
@@ -30,6 +30,7 @@ class StatsArgs:
     date: str | None = None
     since: str | None = None
     until: str | None = None
+    window: str | None = None
     status: str | None = None
     profile: str | None = None
     mode: str | None = None
@@ -50,6 +51,24 @@ def detect_workspace_root() -> Path:
     return PROJECT_ROOT
 
 
+def current_date() -> datetime.date:
+    return datetime.now().date()
+
+
+def parse_window_days(raw_value: str) -> int:
+    if not raw_value.endswith("d"):
+        raise ValueError("--window must use the format Nd, for example 7d")
+    number = raw_value[:-1]
+    if not number.isdigit() or int(number) <= 0:
+        raise ValueError("--window must use the format Nd, for example 7d")
+    return int(number)
+
+
+def window_start_date(raw_value: str) -> str:
+    days = parse_window_days(raw_value)
+    return (current_date() - timedelta(days=days - 1)).isoformat()
+
+
 def parse_raw_args(raw_args: str) -> StatsArgs:
     tokens = shlex.split(raw_args)
     parser = argparse.ArgumentParser(add_help=False)
@@ -57,6 +76,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--date")
     parser.add_argument("--since")
     parser.add_argument("--until")
+    parser.add_argument("--window")
     parser.add_argument("--status")
     parser.add_argument("--profile")
     parser.add_argument("--mode")
@@ -86,6 +106,8 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
             datetime.strptime(namespace.until, "%Y-%m-%d")
         except ValueError as exc:
             raise ValueError("--until must use YYYY-MM-DD") from exc
+    if namespace.window:
+        parse_window_days(namespace.window)
     if namespace.status and namespace.status not in VALID_STATUSES:
         raise ValueError("--status must be one of: dry-run, failed, ok")
     if namespace.profile and namespace.profile not in VALID_PROFILES:
@@ -105,6 +127,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         date=namespace.date,
         since=namespace.since,
         until=namespace.until,
+        window=namespace.window,
         status=namespace.status,
         profile=namespace.profile,
         mode=namespace.mode,
@@ -138,8 +161,11 @@ def iter_run_json_files(workspace_root: Path, args: StatsArgs) -> list[Path]:
             return []
         return sorted(date_dir.glob("*.json"), reverse=reverse)
     date_dirs = [path for path in runs_root.iterdir() if path.is_dir()]
-    if args.since:
-        date_dirs = [path for path in date_dirs if path.name >= args.since]
+    effective_since = args.since or (
+        window_start_date(args.window) if args.window else None
+    )
+    if effective_since:
+        date_dirs = [path for path in date_dirs if path.name >= effective_since]
     if args.until:
         date_dirs = [path for path in date_dirs if path.name <= args.until]
     json_paths: list[Path] = []
@@ -241,6 +267,7 @@ def format_json(records: list[dict], args: StatsArgs) -> str:
             "date": args.date,
             "since": args.since,
             "until": args.until,
+            "window": args.window,
             "status": args.status,
             "profile": args.profile,
             "mode": args.mode,
@@ -292,6 +319,8 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
             header.append(f"Date filter: {args.date}")
         if args.since:
             header.append(f"Since filter: {args.since}")
+        if args.window:
+            header.append(f"Window filter: {args.window}")
         if args.until:
             header.append(f"Until filter: {args.until}")
         header.append(f"Sort order: {args.sort}")
@@ -325,6 +354,8 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         header.append(f"Date filter: {args.date}")
     if args.since:
         header.append(f"Since filter: {args.since}")
+    if args.window:
+        header.append(f"Window filter: {args.window}")
     if args.until:
         header.append(f"Until filter: {args.until}")
     header.append(f"Sort order: {args.sort}")
