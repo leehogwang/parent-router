@@ -44,7 +44,7 @@ The user-facing output is intentionally plain. You see a normal Claude response,
 
 `/parent-no-opus` rejects `--model opus`.
 
-`/parent-stats` supports `--limit N`, `--date YYYY-MM-DD`, `--since YYYY-MM-DD`, `--until YYYY-MM-DD`, `--window Nd`, `--status ok|failed|dry-run`, `--profile parent|parent-no-opus`, `--mode plan|execute`, `--model haiku|sonnet|opus`, `--confidence high|medium|low`, `--format text|tsv|json`, `--reasons-only`, `--fail-if-empty`, `--summary-only`, `--show-paths`, and `--sort newest|oldest`.
+`/parent-stats` supports `--limit N|0`, `--date YYYY-MM-DD`, `--since YYYY-MM-DD`, `--until YYYY-MM-DD`, `--window Nd`, `--status ok|failed|dry-run`, `--profile parent|parent-no-opus`, `--mode plan|execute`, `--model haiku|sonnet|opus`, `--confidence high|medium|low`, `--format text|tsv|json`, `--reasons-only`, `--fail-if-empty`, `--summary-only`, `--show-paths`, and `--sort newest|oldest`.
 
 ### Installation
 
@@ -62,7 +62,7 @@ Interactive:
 claude
 /parent fix the flaky multi-file integration test
 /parent-no-opus --dry-run Design a new authentication architecture with migration planning
-/parent-stats --window 7d --summary-only --show-paths --sort oldest --limit 20
+/parent-stats --window 7d --summary-only --show-paths --sort oldest --limit 0
 ```
 
 One-shot:
@@ -71,7 +71,7 @@ One-shot:
 claude -p '/parent --dry-run rename one variable'
 claude -p '/parent --why fix the flaky multi-file integration test'
 claude -p '/parent-no-opus --dry-run Design a new authentication architecture with migration planning'
-claude -p '/parent-stats --window 7d --summary-only --show-paths --sort oldest --limit 20'
+claude -p '/parent-stats --window 7d --summary-only --show-paths --sort oldest --limit 0'
 ```
 
 ### How routing works
@@ -101,7 +101,7 @@ python3 scripts/parent_stats.py --date 2026-04-10 --summary-only --limit 20
 python3 scripts/parent_stats.py --date 2026-04-10 --summary-only --show-paths --limit 20
 python3 scripts/parent_stats.py --date 2026-04-10 --summary-only --show-paths --sort oldest --limit 20
 python3 scripts/parent_stats.py --since 2026-04-10 --summary-only --show-paths --sort oldest --limit 20
-python3 scripts/parent_stats.py --window 7d --summary-only --show-paths --sort oldest --limit 20
+python3 scripts/parent_stats.py --window 7d --summary-only --show-paths --sort oldest --limit 0
 ```
 
 The stats report also aggregates `reason_codes`, so you can see which routing rules fired most often across recent runs.
@@ -121,6 +121,8 @@ Use `--show-paths` when you need to know exactly which JSON log files contribute
 Use `--since YYYY-MM-DD` when you want a lower date bound instead of inspecting a single day or the full history.
 
 Use `--window Nd` when you want a recent rolling day window without calculating exact calendar bounds yourself.
+
+Use `--limit 0` when you want the full filtered result set without truncation.
 
 Use `--sort oldest` when you want the earliest matching logs first instead of the default newest-first behavior.
 
