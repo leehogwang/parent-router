@@ -23,13 +23,16 @@ class ParentStatsTests(unittest.TestCase):
         with mock.patch.object(
             sys,
             "stdin",
-            io.StringIO("--limit 5 --date 2026-04-10 --status ok --profile parent"),
+            io.StringIO(
+                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan"
+            ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
         self.assertEqual(args.limit, 5)
         self.assertEqual(args.date, "2026-04-10")
         self.assertEqual(args.status, "ok")
         self.assertEqual(args.profile, "parent")
+        self.assertEqual(args.mode, "plan")
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
@@ -40,6 +43,8 @@ class ParentStatsTests(unittest.TestCase):
             parent_stats.parse_raw_args("--status maybe")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--profile unknown")
+        with self.assertRaises(ValueError):
+            parent_stats.parse_raw_args("--mode draft")
 
     def test_load_run_records_and_format_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -78,6 +83,7 @@ class ParentStatsTests(unittest.TestCase):
                 date="2026-04-10",
                 status="ok",
                 profile="parent",
+                mode="plan",
             )
             paths = parent_stats.iter_run_json_files(root, args)
             loaded = parent_stats.load_run_records(paths, args)
@@ -86,6 +92,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertEqual(len(loaded), 1)
         self.assertIn("Status filter: ok", report)
         self.assertIn("Profile filter: parent", report)
+        self.assertIn("Mode filter: plan", report)
         self.assertIn("Runs analyzed: 1", report)
         self.assertIn("Status: ok=1", report)
         self.assertIn("Profiles: parent=1", report)
@@ -124,6 +131,34 @@ class ParentStatsTests(unittest.TestCase):
             )
         self.assertEqual(len(loaded), 1)
         self.assertEqual(loaded[0]["profile"], "parent-no-opus")
+
+    def test_mode_filter_excludes_other_modes(self) -> None:
+        records = [
+            {
+                "selected_mode": "plan",
+                "execution_status": "ok",
+                "request_text": "Auth migration",
+            },
+            {
+                "selected_mode": "execute",
+                "execution_status": "ok",
+                "request_text": "Cheap fix",
+            },
+        ]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            run_dir = root / ".parent" / "runs" / "2026-04-10"
+            run_dir.mkdir(parents=True)
+            for index, record in enumerate(records):
+                (run_dir / f"20260410T1{index}0000Z-parent.json").write_text(
+                    json.dumps(record), encoding="utf-8"
+                )
+            args = parent_stats.StatsArgs(mode="execute")
+            loaded = parent_stats.load_run_records(
+                parent_stats.iter_run_json_files(root, args), args
+            )
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0]["selected_mode"], "execute")
 
     def test_main_reports_no_runs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

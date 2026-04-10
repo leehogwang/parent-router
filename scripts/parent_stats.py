@@ -17,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RUNS_DIR = Path(os.environ.get("PARENTS_RUNS_DIR", ".parent/runs"))
 VALID_STATUSES = {"ok", "failed", "dry-run"}
 VALID_PROFILES = {"parent", "parent-no-opus"}
+VALID_MODES = {"plan", "execute"}
 
 
 @dataclass
@@ -25,6 +26,7 @@ class StatsArgs:
     date: str | None = None
     status: str | None = None
     profile: str | None = None
+    mode: str | None = None
 
 
 def detect_workspace_root() -> Path:
@@ -41,6 +43,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--date")
     parser.add_argument("--status")
     parser.add_argument("--profile")
+    parser.add_argument("--mode")
     namespace = parser.parse_args(tokens)
     if namespace.limit <= 0:
         raise ValueError("--limit must be greater than zero")
@@ -53,11 +56,14 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         raise ValueError("--status must be one of: dry-run, failed, ok")
     if namespace.profile and namespace.profile not in VALID_PROFILES:
         raise ValueError("--profile must be one of: parent, parent-no-opus")
+    if namespace.mode and namespace.mode not in VALID_MODES:
+        raise ValueError("--mode must be one of: execute, plan")
     return StatsArgs(
         limit=namespace.limit,
         date=namespace.date,
         status=namespace.status,
         profile=namespace.profile,
+        mode=namespace.mode,
     )
 
 
@@ -89,6 +95,10 @@ def execution_profile(record: dict) -> str:
     return record.get("profile") or "(unknown)"
 
 
+def execution_mode(record: dict) -> str:
+    return record.get("selected_mode") or "(unknown)"
+
+
 def load_run_records(paths: list[Path], args: StatsArgs) -> list[dict]:
     records: list[dict] = []
     for path in paths:
@@ -99,6 +109,8 @@ def load_run_records(paths: list[Path], args: StatsArgs) -> list[dict]:
         if args.status and execution_status(record) != args.status:
             continue
         if args.profile and execution_profile(record) != args.profile:
+            continue
+        if args.mode and execution_mode(record) != args.mode:
             continue
         records.append(record)
         if len(records) >= args.limit:
@@ -127,6 +139,8 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         header.append(f"Status filter: {args.status}")
     if args.profile:
         header.append(f"Profile filter: {args.profile}")
+    if args.mode:
+        header.append(f"Mode filter: {args.mode}")
     header.append(f"Runs analyzed: {len(records)}")
     if not records:
         return "\n".join(header + ["No run logs found."])
@@ -142,7 +156,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         status_counts[execution_status(record)] += 1
         profile_counts[execution_profile(record)] += 1
         model_counts[record.get("selected_model") or "(unknown)"] += 1
-        mode_counts[record.get("selected_mode") or "(unknown)"] += 1
+        mode_counts[execution_mode(record)] += 1
         confidence_counts[record.get("confidence") or "(unknown)"] += 1
         for reason_code in record.get("reason_codes") or []:
             reason_code_counts[reason_code] += 1
@@ -163,7 +177,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
                 [
                     record.get("timestamp") or "(no timestamp)",
                     execution_profile(record),
-                    f"{record.get('selected_model') or '?'}:{record.get('selected_mode') or '?'}",
+                    f"{record.get('selected_model') or '?'}:{execution_mode(record)}",
                     execution_status(record),
                     summarize_request(record.get("request_text") or ""),
                 ]
