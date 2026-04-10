@@ -36,6 +36,7 @@ class StatsArgs:
     reasons_only: bool = False
     fail_if_empty: bool = False
     summary_only: bool = False
+    show_paths: bool = False
 
 
 def detect_workspace_root() -> Path:
@@ -59,6 +60,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--reasons-only", action="store_true")
     parser.add_argument("--fail-if-empty", action="store_true")
     parser.add_argument("--summary-only", action="store_true")
+    parser.add_argument("--show-paths", action="store_true")
     namespace = parser.parse_args(tokens)
     if namespace.limit <= 0:
         raise ValueError("--limit must be greater than zero")
@@ -91,6 +93,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         reasons_only=namespace.reasons_only,
         fail_if_empty=namespace.fail_if_empty,
         summary_only=namespace.summary_only,
+        show_paths=namespace.show_paths,
     )
 
 
@@ -134,6 +137,10 @@ def execution_confidence(record: dict) -> str:
     return record.get("confidence") or "(unknown)"
 
 
+def source_path(record: dict) -> str | None:
+    return record.get("_source_path")
+
+
 def load_run_records(paths: list[Path], args: StatsArgs) -> list[dict]:
     records: list[dict] = []
     for path in paths:
@@ -151,6 +158,7 @@ def load_run_records(paths: list[Path], args: StatsArgs) -> list[dict]:
             continue
         if args.confidence and execution_confidence(record) != args.confidence:
             continue
+        record["_source_path"] = str(path)
         records.append(record)
         if len(records) >= args.limit:
             break
@@ -208,6 +216,7 @@ def format_json(records: list[dict], args: StatsArgs) -> str:
             "reasons_only": args.reasons_only,
             "fail_if_empty": args.fail_if_empty,
             "summary_only": args.summary_only,
+            "show_paths": args.show_paths,
         },
         "runs_analyzed": len(records),
     }
@@ -228,6 +237,7 @@ def format_json(records: list[dict], args: StatsArgs) -> str:
                 "confidence": execution_confidence(record),
                 "reason_codes": record.get("reason_codes") or [],
                 "request_text": compact_request(record.get("request_text") or ""),
+                "source_path": source_path(record),
             }
             for record in records
         ]
@@ -258,6 +268,14 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
             header.append(f"Confidence filter: {args.confidence}")
         header.append(f"Runs analyzed: {len(records)}")
         header.append(f"Reason codes: {format_counter(reason_code_counts)}")
+        if args.show_paths:
+            header.append("Included paths:")
+            header.extend(
+                f"- {path}"
+                for path in sorted(
+                    filter(None, (source_path(record) for record in records))
+                )
+            )
         return "\n".join(header)
 
     if args.output_format == "tsv":
@@ -304,6 +322,14 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         f"Confidence: {format_counter(confidence_counts)}",
         f"Reason codes: {format_counter(reason_code_counts)}",
     ]
+    if args.show_paths:
+        lines.append("Included paths:")
+        lines.extend(
+            f"- {path}"
+            for path in sorted(
+                filter(None, (source_path(record) for record in records))
+            )
+        )
     if args.summary_only:
         return "\n".join(lines)
 

@@ -24,7 +24,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only"
+                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -39,6 +39,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertTrue(args.reasons_only)
         self.assertTrue(args.fail_if_empty)
         self.assertTrue(args.summary_only)
+        self.assertTrue(args.show_paths)
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
@@ -203,14 +204,17 @@ class ParentStatsTests(unittest.TestCase):
                 "execution_status": "ok",
                 "reason_codes": ["HIGH_RISK_CHANGE"],
                 "request_text": "Plan a migration for auth",
+                "_source_path": ".parent/runs/2026-04-10/20260410T100000Z-parent.json",
             }
         ]
         output = parent_stats.format_report(
             records,
-            parent_stats.StatsArgs(summary_only=True, model="opus"),
+            parent_stats.StatsArgs(summary_only=True, model="opus", show_paths=True),
         )
         self.assertIn("Model filter: opus", output)
         self.assertIn("Reason codes: HIGH_RISK_CHANGE=1", output)
+        self.assertIn("Included paths:", output)
+        self.assertIn("20260410T100000Z-parent.json", output)
         self.assertNotIn("Recent runs:", output)
         self.assertNotIn("Plan a migration for auth", output)
 
@@ -233,6 +237,38 @@ class ParentStatsTests(unittest.TestCase):
         self.assertTrue(data["filters"]["reasons_only"])
         self.assertFalse(data["filters"]["fail_if_empty"])
         self.assertFalse(data["filters"]["summary_only"])
+        self.assertFalse(data["filters"]["show_paths"])
+
+    def test_show_paths_exposes_loaded_file_locations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            run_dir = root / ".parent" / "runs" / "2026-04-10"
+            run_dir.mkdir(parents=True)
+            path = run_dir / "20260410T400000Z-parent.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "timestamp": "2026-04-10T10:00:00+00:00",
+                        "profile": "parent",
+                        "selected_model": "opus",
+                        "selected_mode": "plan",
+                        "confidence": "high",
+                        "execution_status": "ok",
+                        "reason_codes": ["HIGH_RISK_CHANGE"],
+                        "request_text": "Plan a migration for auth",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            args = parent_stats.StatsArgs(show_paths=True)
+            loaded = parent_stats.load_run_records(
+                parent_stats.iter_run_json_files(root, args), args
+            )
+            output = parent_stats.format_report(
+                loaded, parent_stats.StatsArgs(show_paths=True)
+            )
+        self.assertIn("Included paths:", output)
+        self.assertIn(str(path), output)
 
     def test_profile_filter_excludes_other_profiles(self) -> None:
         records = [
