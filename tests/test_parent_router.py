@@ -461,6 +461,41 @@ class ParentRouterTests(unittest.TestCase):
         self.assertIn("Using your requested model sonnet, mode execute.", output)
         self.assertIn("child output", output)
 
+    def test_main_prints_confirmation_when_child_stdout_is_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            result = parent.ExecutionResult(
+                ok=True,
+                stdout="",
+                stderr="",
+                exit_code=0,
+                argv=[],
+            )
+            cli_args = mock.Mock(
+                session_id=None,
+                command_name="/parent",
+                command_profile=None,
+                started_at=None,
+            )
+            with (
+                mock.patch.dict(
+                    parent.os.environ, {"PARENTS_PROJECT_ROOT": str(root)}, clear=False
+                ),
+                mock.patch.object(sys, "stdin", io.StringIO("rename one variable")),
+                mock.patch.object(
+                    parent, "parse_cli_args", return_value=(cli_args, [])
+                ),
+                mock.patch.object(parent, "execute_route", return_value=result),
+                mock.patch.object(parent, "write_logs"),
+                mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
+            ):
+                exit_code = parent.main(["parent.py"])
+        self.assertEqual(exit_code, 0)
+        self.assertIn(
+            "completed successfully, but Claude returned no visible output",
+            stdout.getvalue(),
+        )
+
     def test_plan_route_uses_read_only_tools_without_claude_plan_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

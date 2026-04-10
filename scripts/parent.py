@@ -1157,6 +1157,10 @@ def capture_failure_message(command_name: str) -> str:
     )
 
 
+def empty_success_message() -> str:
+    return "The routed request completed successfully, but Claude returned no visible output."
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = argv or sys.argv
     workspace_root = detect_workspace_root()
@@ -1200,7 +1204,8 @@ def main(argv: list[str] | None = None) -> int:
         output = clamp_transition_hint(decision) + "\n\n" + output
     elif forced_route_hint(decision):
         output = forced_route_hint(decision) + "\n\n" + output
-    print(output.strip())
+    final_output = output.strip() or empty_success_message()
+    print(final_output)
     return 0
 
 
