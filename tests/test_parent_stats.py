@@ -24,7 +24,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high"
+                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format tsv"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -35,6 +35,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertEqual(args.mode, "plan")
         self.assertEqual(args.model, "opus")
         self.assertEqual(args.confidence, "high")
+        self.assertEqual(args.output_format, "tsv")
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
@@ -51,6 +52,8 @@ class ParentStatsTests(unittest.TestCase):
             parent_stats.parse_raw_args("--model turbo")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--confidence unsure")
+        with self.assertRaises(ValueError):
+            parent_stats.parse_raw_args("--format csv")
 
     def test_load_run_records_and_format_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -92,6 +95,7 @@ class ParentStatsTests(unittest.TestCase):
                 mode="plan",
                 model="opus",
                 confidence="high",
+                output_format="text",
             )
             paths = parent_stats.iter_run_json_files(root, args)
             loaded = parent_stats.load_run_records(paths, args)
@@ -113,6 +117,31 @@ class ParentStatsTests(unittest.TestCase):
         self.assertIn("Recent runs:", report)
         self.assertIn("Plan a migration for auth", report)
         self.assertNotIn("Rename one variable safely", report)
+
+    def test_format_report_supports_tsv_output(self) -> None:
+        records = [
+            {
+                "timestamp": "2026-04-10T10:00:00+00:00",
+                "profile": "parent",
+                "selected_model": "opus",
+                "selected_mode": "plan",
+                "confidence": "high",
+                "execution_status": "ok",
+                "reason_codes": ["HIGH_RISK_CHANGE"],
+                "request_text": "Plan a migration for auth",
+            }
+        ]
+        output = parent_stats.format_report(
+            records, parent_stats.StatsArgs(output_format="tsv")
+        )
+        self.assertIn(
+            "timestamp\tprofile\tmodel\tmode\tstatus\tconfidence\treason_codes\trequest_text",
+            output,
+        )
+        self.assertIn(
+            "2026-04-10T10:00:00+00:00\tparent\topus\tplan\tok\thigh\tHIGH_RISK_CHANGE\tPlan a migration for auth",
+            output,
+        )
 
     def test_profile_filter_excludes_other_profiles(self) -> None:
         records = [

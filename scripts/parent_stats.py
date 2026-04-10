@@ -20,6 +20,7 @@ VALID_PROFILES = {"parent", "parent-no-opus"}
 VALID_MODES = {"plan", "execute"}
 VALID_MODELS = {"haiku", "sonnet", "opus"}
 VALID_CONFIDENCE = {"high", "medium", "low"}
+VALID_FORMATS = {"text", "tsv"}
 
 
 @dataclass
@@ -31,6 +32,7 @@ class StatsArgs:
     mode: str | None = None
     model: str | None = None
     confidence: str | None = None
+    output_format: str = "text"
 
 
 def detect_workspace_root() -> Path:
@@ -50,6 +52,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--mode")
     parser.add_argument("--model")
     parser.add_argument("--confidence")
+    parser.add_argument("--format")
     namespace = parser.parse_args(tokens)
     if namespace.limit <= 0:
         raise ValueError("--limit must be greater than zero")
@@ -68,6 +71,8 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         raise ValueError("--model must be one of: haiku, opus, sonnet")
     if namespace.confidence and namespace.confidence not in VALID_CONFIDENCE:
         raise ValueError("--confidence must be one of: high, low, medium")
+    if namespace.format and namespace.format not in VALID_FORMATS:
+        raise ValueError("--format must be one of: text, tsv")
     return StatsArgs(
         limit=namespace.limit,
         date=namespace.date,
@@ -76,6 +81,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         mode=namespace.mode,
         model=namespace.model,
         confidence=namespace.confidence,
+        output_format=namespace.format or "text",
     )
 
 
@@ -155,7 +161,36 @@ def format_counter(counter: Counter[str]) -> str:
     return ", ".join(f"{key}={counter[key]}" for key in sorted(counter))
 
 
+def compact_request(text: str) -> str:
+    return " ".join(text.split())
+
+
+def format_tsv(records: list[dict]) -> str:
+    lines = [
+        "timestamp\tprofile\tmodel\tmode\tstatus\tconfidence\treason_codes\trequest_text"
+    ]
+    for record in records:
+        lines.append(
+            "\t".join(
+                [
+                    record.get("timestamp") or "",
+                    execution_profile(record),
+                    execution_model(record),
+                    execution_mode(record),
+                    execution_status(record),
+                    execution_confidence(record),
+                    ",".join(record.get("reason_codes") or []),
+                    compact_request(record.get("request_text") or ""),
+                ]
+            )
+        )
+    return "\n".join(lines)
+
+
 def format_report(records: list[dict], args: StatsArgs) -> str:
+    if args.output_format == "tsv":
+        return format_tsv(records)
+
     header = ["Parent Run Stats"]
     if args.date:
         header.append(f"Date filter: {args.date}")
