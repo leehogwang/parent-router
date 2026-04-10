@@ -35,6 +35,14 @@ VALID_FIELDS = {
 }
 FIELD_PRESETS = {
     "core": ("timestamp", "model", "mode", "status", "confidence"),
+    "debug": (
+        "timestamp",
+        "model",
+        "mode",
+        "status",
+        "reason_codes",
+        "source_path",
+    ),
 }
 
 

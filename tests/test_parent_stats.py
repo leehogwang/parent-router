@@ -25,7 +25,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --window 7d --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest --count-only --fields core"
+                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --window 7d --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest --count-only --fields debug"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -48,7 +48,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertTrue(args.count_only)
         self.assertEqual(
             args.fields,
-            ("timestamp", "model", "mode", "status", "confidence"),
+            ("timestamp", "model", "mode", "status", "reason_codes", "source_path"),
         )
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
@@ -85,6 +85,12 @@ class ParentStatsTests(unittest.TestCase):
         self.assertEqual(
             parent_stats.parse_fields("core"),
             ("timestamp", "model", "mode", "status", "confidence"),
+        )
+
+    def test_parse_fields_supports_debug_preset(self) -> None:
+        self.assertEqual(
+            parent_stats.parse_fields("debug"),
+            ("timestamp", "model", "mode", "status", "reason_codes", "source_path"),
         )
 
     def test_load_run_records_and_format_report(self) -> None:
