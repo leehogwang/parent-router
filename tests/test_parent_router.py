@@ -142,8 +142,22 @@ class ParentRouterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             parsed = parent.parse_command_arguments("--model opus implement the task")
-            with self.assertRaises(ValueError):
+            with self.assertRaisesRegex(
+                ValueError, r"retry with `/parent --model opus implement the task`"
+            ):
                 parent.choose_route(parent.PROFILES["parent-no-opus"], parsed, root)
+
+    def test_haiku_plan_error_includes_recovery_options(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            parsed = parent.parse_command_arguments(
+                "--model haiku --mode plan design an auth migration"
+            )
+            with self.assertRaisesRegex(
+                ValueError,
+                r"Retry with `--model sonnet`, `--model opus`, or switch to `--mode execute`",
+            ):
+                parent.choose_route(parent.PROFILES["parent"], parsed, root)
 
     def test_low_confidence_forces_safe_route(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -685,7 +685,8 @@ def select_model(
         if parsed.model not in profile.allowed_models:
             raise ValueError(
                 f"{profile.command_name} does not allow model `{parsed.model}`. "
-                f"Use one of: {', '.join(profile.allowed_models)}."
+                f"Use one of: {', '.join(profile.allowed_models)}. "
+                f"If you need Opus, retry with `/parent --model opus {parsed.task}`."
             )
         reasons.append("USER_FORCED_MODEL")
         return parsed.model, reasons, False
@@ -809,7 +810,8 @@ def choose_route(
         reasons.append("LOW_CONFIDENCE_SAFE_FALLBACK")
     if mode == "plan" and model == "haiku":
         raise ValueError(
-            "`haiku` cannot be used in plan mode. Use `sonnet`, `opus`, or mode `execute`."
+            "`haiku` cannot be used in plan mode. Retry with `--model sonnet`, `--model opus`, "
+            "or switch to `--mode execute`."
         )
     selected_effort, effective_effort, effort_reasons = select_effort(
         parsed, scores, mode, model
