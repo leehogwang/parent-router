@@ -1124,12 +1124,19 @@ def recovery_hint(decision: RouteDecision) -> str:
     return "Next step: retry with `--dry-run --why` to inspect the route without running the child request."
 
 
+def launch_failure_hint(result: ExecutionResult) -> str:
+    if result.exit_code == 127:
+        return "Next step: make sure the Claude CLI is installed and that `PARENTS_CLAUDE_BIN` points to a runnable binary."
+    return ""
+
+
 def format_failure(decision: RouteDecision, result: ExecutionResult) -> str:
     stderr = summarize_text(result.stderr) or "(empty)"
+    next_step = launch_failure_hint(result) or recovery_hint(decision)
     return (
         f"The routed Claude invocation failed with exit code {result.exit_code}.\n\n"
         f"Route: {decision.selected_model} in {decision.selected_mode} mode with {decision.effective_effort} effort.\n\n"
-        f"{stderr}\n\n{recovery_hint(decision)}"
+        f"{stderr}\n\n{next_step}"
     )
 
 
