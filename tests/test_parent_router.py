@@ -233,6 +233,21 @@ class ParentRouterTests(unittest.TestCase):
         self.assertIn("PARENTS_CLAUDE_BIN", message)
         self.assertIn("Claude CLI", message)
 
+    def test_format_failure_includes_stderr_summary_line(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            parsed = parent.parse_command_arguments("rename one variable")
+            decision = parent.choose_route(parent.PROFILES["parent"], parsed, root)
+        result = parent.ExecutionResult(
+            ok=False,
+            stdout="",
+            stderr="first line boom\nsecond line detail",
+            exit_code=1,
+        )
+        message = parent.format_failure(decision, result)
+        self.assertIn("Failure summary: first line boom", message)
+        self.assertIn("second line detail", message)
+
     def test_main_shows_concrete_retry_guidance_when_request_capture_fails(
         self,
     ) -> None:

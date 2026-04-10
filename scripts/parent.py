@@ -1130,13 +1130,23 @@ def launch_failure_hint(result: ExecutionResult) -> str:
     return ""
 
 
+def failure_summary(stderr: str) -> str:
+    text = stderr.strip()
+    if not text:
+        return "Failure summary: no stderr output was returned."
+    first_line = text.splitlines()[0].strip()
+    if not first_line:
+        return "Failure summary: stderr did not include a readable first line."
+    return f"Failure summary: {summarize_text(first_line, limit=140)}"
+
+
 def format_failure(decision: RouteDecision, result: ExecutionResult) -> str:
     stderr = summarize_text(result.stderr) or "(empty)"
     next_step = launch_failure_hint(result) or recovery_hint(decision)
     return (
         f"The routed Claude invocation failed with exit code {result.exit_code}.\n\n"
         f"Route: {decision.selected_model} in {decision.selected_mode} mode with {decision.effective_effort} effort.\n\n"
-        f"{stderr}\n\n{next_step}"
+        f"{failure_summary(result.stderr)}\n\n{stderr}\n\n{next_step}"
     )
 
 
