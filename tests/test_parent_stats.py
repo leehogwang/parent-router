@@ -24,7 +24,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty"
+                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -38,6 +38,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertEqual(args.output_format, "json")
         self.assertTrue(args.reasons_only)
         self.assertTrue(args.fail_if_empty)
+        self.assertTrue(args.summary_only)
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
@@ -191,6 +192,28 @@ class ParentStatsTests(unittest.TestCase):
         )
         self.assertNotIn("Recent runs:", output)
 
+    def test_format_report_supports_summary_only_output(self) -> None:
+        records = [
+            {
+                "timestamp": "2026-04-10T10:00:00+00:00",
+                "profile": "parent",
+                "selected_model": "opus",
+                "selected_mode": "plan",
+                "confidence": "high",
+                "execution_status": "ok",
+                "reason_codes": ["HIGH_RISK_CHANGE"],
+                "request_text": "Plan a migration for auth",
+            }
+        ]
+        output = parent_stats.format_report(
+            records,
+            parent_stats.StatsArgs(summary_only=True, model="opus"),
+        )
+        self.assertIn("Model filter: opus", output)
+        self.assertIn("Reason codes: HIGH_RISK_CHANGE=1", output)
+        self.assertNotIn("Recent runs:", output)
+        self.assertNotIn("Plan a migration for auth", output)
+
     def test_format_report_supports_reasons_only_json_output(self) -> None:
         records = [
             {"reason_codes": ["HIGH_RISK_CHANGE", "GREENFIELD_SYSTEM_REQUEST"]},
@@ -209,6 +232,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertNotIn("records", data)
         self.assertTrue(data["filters"]["reasons_only"])
         self.assertFalse(data["filters"]["fail_if_empty"])
+        self.assertFalse(data["filters"]["summary_only"])
 
     def test_profile_filter_excludes_other_profiles(self) -> None:
         records = [

@@ -35,6 +35,7 @@ class StatsArgs:
     output_format: str = "text"
     reasons_only: bool = False
     fail_if_empty: bool = False
+    summary_only: bool = False
 
 
 def detect_workspace_root() -> Path:
@@ -57,6 +58,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--format")
     parser.add_argument("--reasons-only", action="store_true")
     parser.add_argument("--fail-if-empty", action="store_true")
+    parser.add_argument("--summary-only", action="store_true")
     namespace = parser.parse_args(tokens)
     if namespace.limit <= 0:
         raise ValueError("--limit must be greater than zero")
@@ -88,6 +90,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         output_format=namespace.format or "text",
         reasons_only=namespace.reasons_only,
         fail_if_empty=namespace.fail_if_empty,
+        summary_only=namespace.summary_only,
     )
 
 
@@ -204,6 +207,7 @@ def format_json(records: list[dict], args: StatsArgs) -> str:
             "confidence": args.confidence,
             "reasons_only": args.reasons_only,
             "fail_if_empty": args.fail_if_empty,
+            "summary_only": args.summary_only,
         },
         "runs_analyzed": len(records),
     }
@@ -299,8 +303,11 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         f"Modes: {format_counter(mode_counts)}",
         f"Confidence: {format_counter(confidence_counts)}",
         f"Reason codes: {format_counter(reason_code_counts)}",
-        "Recent runs:",
     ]
+    if args.summary_only:
+        return "\n".join(lines)
+
+    lines.append("Recent runs:")
     for record in records:
         lines.append(
             "- "
