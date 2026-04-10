@@ -42,6 +42,7 @@ class StatsArgs:
     summary_only: bool = False
     show_paths: bool = False
     sort: str = "newest"
+    count_only: bool = False
 
 
 def detect_workspace_root() -> Path:
@@ -88,6 +89,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--summary-only", action="store_true")
     parser.add_argument("--show-paths", action="store_true")
     parser.add_argument("--sort")
+    parser.add_argument("--count-only", action="store_true")
     namespace = parser.parse_args(tokens)
     if namespace.limit < 0:
         raise ValueError("--limit must be zero or greater")
@@ -139,6 +141,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         summary_only=namespace.summary_only,
         show_paths=namespace.show_paths,
         sort=namespace.sort or "newest",
+        count_only=namespace.count_only,
     )
 
 
@@ -278,6 +281,7 @@ def format_json(records: list[dict], args: StatsArgs) -> str:
             "summary_only": args.summary_only,
             "show_paths": args.show_paths,
             "sort": args.sort,
+            "count_only": args.count_only,
         },
         "runs_analyzed": len(records),
     }
@@ -389,7 +393,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         for reason_code in record.get("reason_codes") or []:
             reason_code_counts[reason_code] += 1
 
-    lines = header + [
+    count_lines = [
         f"Status: {format_counter(status_counts)}",
         f"Profiles: {format_counter(profile_counts)}",
         f"Models: {format_counter(model_counts)}",
@@ -397,6 +401,9 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         f"Confidence: {format_counter(confidence_counts)}",
         f"Reason codes: {format_counter(reason_code_counts)}",
     ]
+    if args.count_only:
+        return "\n".join(count_lines)
+    lines = header + count_lines
     if args.show_paths:
         lines.append("Included paths:")
         lines.extend(

@@ -25,7 +25,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --window 7d --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest"
+                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --window 7d --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest --count-only"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -45,6 +45,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertTrue(args.summary_only)
         self.assertTrue(args.show_paths)
         self.assertEqual(args.sort, "oldest")
+        self.assertTrue(args.count_only)
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
@@ -240,6 +241,30 @@ class ParentStatsTests(unittest.TestCase):
         self.assertIn("20260410T100000Z-parent.json", output)
         self.assertNotIn("Recent runs:", output)
         self.assertNotIn("Plan a migration for auth", output)
+
+    def test_format_report_supports_count_only_output(self) -> None:
+        records = [
+            {
+                "timestamp": "2026-04-10T10:00:00+00:00",
+                "profile": "parent",
+                "selected_model": "opus",
+                "selected_mode": "plan",
+                "confidence": "high",
+                "execution_status": "ok",
+                "reason_codes": ["HIGH_RISK_CHANGE"],
+                "request_text": "Plan a migration for auth",
+            }
+        ]
+        output = parent_stats.format_report(
+            records,
+            parent_stats.StatsArgs(count_only=True),
+        )
+        self.assertIn("Status: ok=1", output)
+        self.assertIn("Profiles: parent=1", output)
+        self.assertIn("Reason codes: HIGH_RISK_CHANGE=1", output)
+        self.assertNotIn("Parent Run Stats", output)
+        self.assertNotIn("Runs analyzed:", output)
+        self.assertNotIn("Recent runs:", output)
 
     def test_format_report_supports_reasons_only_json_output(self) -> None:
         records = [
