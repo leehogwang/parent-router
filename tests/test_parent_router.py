@@ -248,6 +248,20 @@ class ParentRouterTests(unittest.TestCase):
             run_command.call_args.kwargs["input_text"].count("user message"), 3
         )
 
+    def test_build_recent_context_falls_back_to_latest_transcript_when_anchor_missing(
+        self,
+    ) -> None:
+        entries = self.make_transcript_entries(6)
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            mock.patch.object(parent, "load_session_entries", return_value=entries),
+            mock.patch.object(parent, "run_command") as run_command,
+        ):
+            context = parent.build_recent_context(Path(tmpdir), "session", -1)
+        self.assertIn("user message 0", context)
+        self.assertIn("assistant message 5", context)
+        run_command.assert_not_called()
+
     def test_write_logs_includes_child_permission_mode_and_tools_in_markdown(
         self,
     ) -> None:

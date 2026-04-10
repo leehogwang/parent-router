@@ -346,9 +346,13 @@ def build_recent_context(
     anchor_index: int,
     claude_bin: Path = CLAUDE_BIN,
 ) -> str:
-    if not session_id or anchor_index < 0:
+    if not session_id:
         return ""
     entries = load_session_entries(session_id)
+    if not entries:
+        return ""
+    if anchor_index < 0:
+        anchor_index = len(entries)
     blocks = collect_visible_transcript_blocks(entries, anchor_index)
     if not blocks:
         return ""
