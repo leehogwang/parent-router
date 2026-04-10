@@ -170,6 +170,28 @@ class ParentRouterTests(unittest.TestCase):
             self.assertFalse(result.ok)
             self.assertEqual(run_command.call_count, 1)
 
+    def test_format_failure_includes_execute_recovery_hint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            parsed = parent.parse_command_arguments("rename one variable")
+            decision = parent.choose_route(parent.PROFILES["parent"], parsed, root)
+        result = parent.ExecutionResult(ok=False, stdout="", stderr="boom", exit_code=1)
+        message = parent.format_failure(decision, result)
+        self.assertIn("Route:", message)
+        self.assertIn("Next step: retry with `--mode plan`", message)
+
+    def test_format_failure_includes_plan_recovery_hint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            parsed = parent.parse_command_arguments(
+                "Plan a migration for the production auth system"
+            )
+            decision = parent.choose_route(parent.PROFILES["parent"], parsed, root)
+        result = parent.ExecutionResult(ok=False, stdout="", stderr="boom", exit_code=1)
+        message = parent.format_failure(decision, result)
+        self.assertIn("Route:", message)
+        self.assertIn("Next step: retry with `--dry-run --why`", message)
+
     def test_plan_route_uses_read_only_tools_without_claude_plan_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

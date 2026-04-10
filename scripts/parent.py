@@ -1064,9 +1064,19 @@ def load_request_text(
     return -1, ""
 
 
-def format_failure(result: ExecutionResult) -> str:
+def recovery_hint(decision: RouteDecision) -> str:
+    if decision.selected_mode == "execute":
+        return "Next step: retry with `--mode plan` if you want a safer plan before making changes."
+    return "Next step: retry with `--dry-run --why` to inspect the route without running the child request."
+
+
+def format_failure(decision: RouteDecision, result: ExecutionResult) -> str:
     stderr = summarize_text(result.stderr) or "(empty)"
-    return f"The routed Claude invocation failed with exit code {result.exit_code}.\n\n{stderr}"
+    return (
+        f"The routed Claude invocation failed with exit code {result.exit_code}.\n\n"
+        f"Route: {decision.selected_model} in {decision.selected_mode} mode with {decision.effective_effort} effort.\n\n"
+        f"{stderr}\n\n{recovery_hint(decision)}"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1100,7 +1110,7 @@ def main(argv: list[str] | None = None) -> int:
     result = execute_route(decision, workspace_root, recent_context)
     write_logs(workspace_root, profile, cli_args.command_name, parsed, decision, result)
     if not result.ok:
-        print(format_failure(result))
+        print(format_failure(decision, result))
         return result.exit_code or 1
 
     output = result.stdout or ""
