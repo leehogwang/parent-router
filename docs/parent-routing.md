@@ -59,4 +59,4 @@ This keeps the interactive UX clean while preserving the full decision trail for
 
 ## Stats Inspection
 
-Use `/parent-stats` or `python3 scripts/parent_stats.py` to inspect recent `.parent/runs` JSON logs without opening individual files. The inspector supports `--limit N`, `--date YYYY-MM-DD`, `--status ok|failed|dry-run`, `--profile parent|parent-no-opus`, `--mode plan|execute`, `--model haiku|sonnet|opus`, and `--confidence high|medium|low`, then prints aggregated counts for status, profile, model, mode, confidence, and `reason_codes` plus a compact recent-run list.
+Use `/parent-stats` or `python3 scripts/parent_stats.py` to inspect recent `.parent/runs` JSON logs without opening individual files. The inspector supports `--limit N`, `--date YYYY-MM-DD`, `--status ok|failed|dry-run`, `--profile parent|parent-no-opus`, `--mode plan|execute`, `--model haiku|sonnet|opus`, `--confidence high|medium|low`, and `--format text|tsv`. The default text mode prints aggregated counts plus a compact recent-run list, while TSV mode emits machine-friendly tab-separated rows for downstream analysis.

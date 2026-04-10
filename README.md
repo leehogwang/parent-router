@@ -44,7 +44,7 @@ The user-facing output is intentionally plain. You see a normal Claude response,
 
 `/parent-no-opus` rejects `--model opus`.
 
-`/parent-stats` supports `--limit N`, `--date YYYY-MM-DD`, `--status ok|failed|dry-run`, `--profile parent|parent-no-opus`, `--mode plan|execute`, `--model haiku|sonnet|opus`, and `--confidence high|medium|low`.
+`/parent-stats` supports `--limit N`, `--date YYYY-MM-DD`, `--status ok|failed|dry-run`, `--profile parent|parent-no-opus`, `--mode plan|execute`, `--model haiku|sonnet|opus`, `--confidence high|medium|low`, and `--format text|tsv`.
 
 ### Installation
 
@@ -62,7 +62,7 @@ Interactive:
 claude
 /parent fix the flaky multi-file integration test
 /parent-no-opus --dry-run Design a new authentication architecture with migration planning
-/parent-stats --profile parent-no-opus --mode execute --model sonnet --confidence medium --status failed --limit 5
+/parent-stats --profile parent-no-opus --mode execute --model sonnet --confidence medium --status failed --limit 5 --format tsv
 ```
 
 One-shot:
@@ -71,7 +71,7 @@ One-shot:
 claude -p '/parent --dry-run rename one variable'
 claude -p '/parent --why fix the flaky multi-file integration test'
 claude -p '/parent-no-opus --dry-run Design a new authentication architecture with migration planning'
-claude -p '/parent-stats --date 2026-04-10 --profile parent --mode plan --model opus --confidence high --status failed --limit 20'
+claude -p '/parent-stats --date 2026-04-10 --profile parent --mode plan --model opus --confidence high --status failed --limit 20 --format tsv'
 ```
 
 ### How routing works
@@ -95,10 +95,12 @@ Inspect recent routing history quickly:
 
 ```bash
 python3 scripts/parent_stats.py --limit 10
-python3 scripts/parent_stats.py --date 2026-04-10 --profile parent-no-opus --mode execute --model sonnet --confidence medium --status failed --limit 20
+python3 scripts/parent_stats.py --date 2026-04-10 --profile parent-no-opus --mode execute --model sonnet --confidence medium --status failed --limit 20 --format tsv
 ```
 
 The stats report also aggregates `reason_codes`, so you can see which routing rules fired most often across recent runs.
+
+Use `--format tsv` when you want machine-friendly rows for spreadsheets or quick external analysis.
 
 ### Development
 
