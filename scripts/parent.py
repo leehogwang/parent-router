@@ -1176,6 +1176,10 @@ def capture_failure_message(command_name: str) -> str:
     )
 
 
+def format_dry_run_message(profile: Profile, decision: RouteDecision) -> str:
+    return f"Confidence: {decision.confidence}\n" + explain_decision(profile, decision)
+
+
 def empty_success_message() -> str:
     return "The routed request completed successfully, but Claude returned no visible output."
 
@@ -1202,7 +1206,7 @@ def main(argv: list[str] | None = None) -> int:
         write_logs(
             workspace_root, profile, cli_args.command_name, parsed, decision, None
         )
-        message = explain_decision(profile, decision)
+        message = format_dry_run_message(profile, decision)
         print(message)
         return 0
 

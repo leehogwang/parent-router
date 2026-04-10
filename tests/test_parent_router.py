@@ -336,6 +336,32 @@ class ParentRouterTests(unittest.TestCase):
         self.assertIn("Could not capture the current command arguments.", output)
         self.assertIn("/parent fix the flaky integration test", output)
 
+    def test_main_dry_run_includes_confidence_line(self) -> None:
+        cli_args = mock.Mock(
+            session_id=None,
+            command_name="/parent",
+            command_profile=None,
+            started_at=None,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with (
+                mock.patch.dict(
+                    parent.os.environ, {"PARENTS_PROJECT_ROOT": str(root)}, clear=False
+                ),
+                mock.patch.object(
+                    parent, "parse_cli_args", return_value=(cli_args, [])
+                ),
+                mock.patch.object(
+                    sys, "stdin", io.StringIO("--dry-run rename one variable")
+                ),
+                mock.patch.object(parent, "write_logs"),
+                mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
+            ):
+                exit_code = parent.main(["parent.py"])
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Confidence: high", stdout.getvalue())
+
     def test_main_prepends_low_confidence_transition_hint(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
