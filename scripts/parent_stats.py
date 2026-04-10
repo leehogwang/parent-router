@@ -43,6 +43,17 @@ FIELD_PRESETS = {
         "reason_codes",
         "source_path",
     ),
+    "all": (
+        "timestamp",
+        "profile",
+        "model",
+        "mode",
+        "status",
+        "confidence",
+        "reason_codes",
+        "request_text",
+        "source_path",
+    ),
 }
 
 
