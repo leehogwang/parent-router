@@ -1,6 +1,6 @@
 ---
 description: Inspect recent /parent routing logs with aggregated stats
-argument-hint: [--limit N] [--date YYYY-MM-DD] [--status ok|failed|dry-run] [--profile parent|parent-no-opus]
+argument-hint: [--limit N] [--date YYYY-MM-DD] [--status ok|failed|dry-run] [--profile parent|parent-no-opus] [--mode plan|execute]
 allowed-tools: Bash
 disable-model-invocation: true
 ---
