@@ -62,7 +62,7 @@ def main() -> int:
             "/parent-stats",
             "Inspect recent /parent routing logs with aggregated stats",
             script_path=STATS_SCRIPT_PATH,
-            argument_hint="[--limit N] [--date YYYY-MM-DD] [--status ok|failed|dry-run] [--profile parent|parent-no-opus] [--mode plan|execute] [--model haiku|sonnet|opus] [--confidence high|medium|low] [--format text|tsv|json] [--reasons-only]",
+            argument_hint="[--limit N] [--date YYYY-MM-DD] [--status ok|failed|dry-run] [--profile parent|parent-no-opus] [--mode plan|execute] [--model haiku|sonnet|opus] [--confidence high|medium|low] [--format text|tsv|json] [--reasons-only] [--fail-if-empty]",
             script_args="",
         ),
     }
