@@ -1,6 +1,6 @@
 ---
 description: Inspect recent /parent routing logs with aggregated stats
-argument-hint: [--limit N] [--date YYYY-MM-DD] [--status ok|failed|dry-run] [--profile parent|parent-no-opus] [--mode plan|execute] [--model haiku|sonnet|opus] [--confidence high|medium|low] [--format text|tsv|json] [--reasons-only] [--fail-if-empty] [--summary-only]
+argument-hint: [--limit N] [--date YYYY-MM-DD] [--status ok|failed|dry-run] [--profile parent|parent-no-opus] [--mode plan|execute] [--model haiku|sonnet|opus] [--confidence high|medium|low] [--format text|tsv|json] [--reasons-only] [--fail-if-empty] [--summary-only] [--show-paths]
 allowed-tools: Bash
 disable-model-invocation: true
 ---
