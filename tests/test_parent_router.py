@@ -183,6 +183,58 @@ class ParentRouterTests(unittest.TestCase):
         self.assertIn("broad or ambiguous enough", message)
         self.assertIn("direct execution path would be risky", message)
 
+    def test_explain_decision_mentions_user_forced_overrides(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            parsed = parent.parse_command_arguments(
+                "--model sonnet --mode execute --effort high rename one variable"
+            )
+            decision = parent.choose_route(parent.PROFILES["parent"], parsed, root)
+        message = parent.explain_decision(parent.PROFILES["parent"], decision)
+        self.assertIn("requested model sonnet, mode execute, effort high", message)
+
+    def test_main_why_uses_forced_override_explanation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            result = parent.ExecutionResult(
+                ok=True,
+                stdout="child output",
+                stderr="",
+                exit_code=0,
+                argv=[],
+            )
+            cli_args = mock.Mock(
+                session_id=None,
+                command_name="/parent",
+                command_profile=None,
+                started_at=None,
+            )
+            with (
+                mock.patch.dict(
+                    parent.os.environ, {"PARENTS_PROJECT_ROOT": str(root)}, clear=False
+                ),
+                mock.patch.object(
+                    sys,
+                    "stdin",
+                    io.StringIO(
+                        "--why --model sonnet --mode execute rename one variable"
+                    ),
+                ),
+                mock.patch.object(
+                    parent, "parse_cli_args", return_value=(cli_args, [])
+                ),
+                mock.patch.object(parent, "execute_route", return_value=result),
+                mock.patch.object(parent, "write_logs"),
+                mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
+            ):
+                exit_code = parent.main(["parent.py"])
+        self.assertEqual(exit_code, 0)
+        output = stdout.getvalue()
+        self.assertIn(
+            "I’m following your requested model sonnet, mode execute.", output
+        )
+        self.assertIn("child output", output)
+
     def test_execute_route_only_runs_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

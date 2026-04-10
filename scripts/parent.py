@@ -950,6 +950,15 @@ def explain_decision(profile: Profile, decision: RouteDecision) -> str:
     model = decision.selected_model.capitalize()
     mode = decision.selected_mode
     effort = decision.effective_effort
+    forced_bits: list[str] = []
+    if decision.explicit_model is not None:
+        forced_bits.append(f"model {decision.selected_model}")
+    if decision.explicit_mode is not None:
+        forced_bits.append(f"mode {decision.selected_mode}")
+    if decision.explicit_effort is not None:
+        forced_bits.append(f"effort {decision.effective_effort}")
+    if forced_bits:
+        return "I’m following your requested " + ", ".join(forced_bits) + "."
     if "LOW_CONFIDENCE_SAFE_FALLBACK" in decision.reason_codes:
         return (
             f"I'll stay on {model} in {mode} mode with {effort} effort because the request still looks broad or ambiguous enough "
