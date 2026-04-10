@@ -4,6 +4,7 @@
 
 - `/parent`
 - `/parent-no-opus`
+- `/parent-stats`
 
 Both commands are thin skill entrypoints that call the shared router at [`scripts/parent.py`](/home/students/cs/202421012/parents/scripts/parent.py). The router first reads the current command arguments from stdin when the wrapper passes them through, falls back to the Claude session transcript when needed, chooses `model`, `mode`, and `effort`, and then launches a child `claude -p` session exactly once.
 
@@ -55,3 +56,7 @@ The logs include:
 - child exit status and stderr summary
 
 This keeps the interactive UX clean while preserving the full decision trail for later inspection.
+
+## Stats Inspection
+
+Use `/parent-stats` or `python3 scripts/parent_stats.py` to inspect recent `.parent/runs` JSON logs without opening individual files. The inspector supports `--limit N` and `--date YYYY-MM-DD`, then prints aggregated counts for status, profile, model, mode, and confidence plus a compact recent-run list.

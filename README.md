@@ -20,6 +20,7 @@ The demo assets are rendered from a real interactive `claude` terminal session. 
 
 - `/parent`
 - `/parent-no-opus`
+- `/parent-stats`
 
 Both commands first read the current slash-command arguments from stdin when the wrapper passes them through, fall back to the Claude session transcript when needed, choose an appropriate `model`, `mode`, and `effort`, and then launch one child `claude -p` run.
 
@@ -31,6 +32,7 @@ The user-facing output is intentionally plain. You see a normal Claude response,
 | --- | --- | --- |
 | `/parent` | `haiku`, `sonnet`, `opus` | General automatic routing |
 | `/parent-no-opus` | `haiku`, `sonnet` | Cost-constrained routing with no Opus |
+| `/parent-stats` | n/a | Inspect recent routing logs and aggregate outcomes |
 
 ### Supported flags
 
@@ -41,6 +43,8 @@ The user-facing output is intentionally plain. You see a normal Claude response,
 - `--dry-run`
 
 `/parent-no-opus` rejects `--model opus`.
+
+`/parent-stats` supports `--limit N` and `--date YYYY-MM-DD`.
 
 ### Installation
 
@@ -58,6 +62,7 @@ Interactive:
 claude
 /parent fix the flaky multi-file integration test
 /parent-no-opus --dry-run Design a new authentication architecture with migration planning
+/parent-stats --limit 5
 ```
 
 One-shot:
@@ -66,6 +71,7 @@ One-shot:
 claude -p '/parent --dry-run rename one variable'
 claude -p '/parent --why fix the flaky multi-file integration test'
 claude -p '/parent-no-opus --dry-run Design a new authentication architecture with migration planning'
+claude -p '/parent-stats --date 2026-04-10 --limit 20'
 ```
 
 ### How routing works
@@ -84,6 +90,13 @@ Every run writes:
 - Markdown summaries to `.parent/runs/YYYY-MM-DD/*.md`
 
 The logs include the original request, selected model/mode/effort, confidence, reason codes, child exit status, and stderr summary.
+
+Inspect recent routing history quickly:
+
+```bash
+python3 scripts/parent_stats.py --limit 10
+python3 scripts/parent_stats.py --date 2026-04-10 --limit 20
+```
 
 ### Development
 
@@ -138,6 +151,7 @@ python3 scripts/render_interactive_demo.py
 
 - `/parent`
 - `/parent-no-opus`
+- `/parent-stats`
 
 두 명령 모두 wrapper가 인자를 넘겨주면 먼저 stdin에서 현재 slash-command 인자를 읽고, 필요할 때만 Claude 세션 transcript를 fallback으로 사용한 뒤, 적절한 `model`, `mode`, `effort`를 선택하고 child `claude -p`를 정확히 한 번 실행한다.
 
@@ -149,6 +163,7 @@ python3 scripts/render_interactive_demo.py
 | --- | --- | --- |
 | `/parent` | `haiku`, `sonnet`, `opus` | 일반 자동 라우팅 |
 | `/parent-no-opus` | `haiku`, `sonnet` | Opus 없이 비용을 통제하는 라우팅 |
+| `/parent-stats` | 해당 없음 | 최근 라우팅 로그를 빠르게 집계해서 확인 |
 
 ### 지원 플래그
 
@@ -159,6 +174,8 @@ python3 scripts/render_interactive_demo.py
 - `--dry-run`
 
 `/parent-no-opus`는 `--model opus`를 허용하지 않는다.
+
+`/parent-stats`는 `--limit N`과 `--date YYYY-MM-DD`를 지원한다.
 
 ### 설치 방법
 
@@ -176,6 +193,7 @@ python3 scripts/render_interactive_demo.py
 claude
 /parent fix the flaky multi-file integration test
 /parent-no-opus --dry-run Design a new authentication architecture with migration planning
+/parent-stats --limit 5
 ```
 
 원샷:
@@ -184,6 +202,7 @@ claude
 claude -p '/parent --dry-run rename one variable'
 claude -p '/parent --why fix the flaky multi-file integration test'
 claude -p '/parent-no-opus --dry-run Design a new authentication architecture with migration planning'
+claude -p '/parent-stats --date 2026-04-10 --limit 20'
 ```
 
 ### 라우팅 규칙
@@ -202,6 +221,13 @@ claude -p '/parent-no-opus --dry-run Design a new authentication architecture wi
 - Markdown 요약: `.parent/runs/YYYY-MM-DD/*.md`
 
 기록에는 원문 요청, 선택된 모델/모드/effort, confidence, reason codes, child 종료 상태, stderr 요약이 포함된다.
+
+최근 라우팅 기록을 빠르게 보려면:
+
+```bash
+python3 scripts/parent_stats.py --limit 10
+python3 scripts/parent_stats.py --date 2026-04-10 --limit 20
+```
 
 ### 개발용 검증
 
