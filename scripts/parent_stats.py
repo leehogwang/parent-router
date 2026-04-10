@@ -22,6 +22,7 @@ VALID_MODELS = {"haiku", "sonnet", "opus"}
 VALID_CONFIDENCE = {"high", "medium", "low"}
 VALID_FORMATS = {"json", "text", "tsv"}
 VALID_SORT = {"newest", "oldest"}
+VALID_GROUP_BY = {"model", "mode", "profile", "status"}
 VALID_FIELDS = {
     "timestamp",
     "profile",
@@ -77,6 +78,7 @@ class StatsArgs:
     sort: str = "newest"
     count_only: bool = False
     fields: tuple[str, ...] = ()
+    group_by: str | None = None
 
 
 def detect_workspace_root() -> Path:
@@ -153,6 +155,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--sort")
     parser.add_argument("--count-only", action="store_true")
     parser.add_argument("--fields")
+    parser.add_argument("--group-by")
     namespace = parser.parse_args(tokens)
     if namespace.limit < 0:
         raise ValueError("--limit must be zero or greater")
@@ -187,11 +190,15 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         raise ValueError("--format must be one of: json, text, tsv")
     if namespace.sort and namespace.sort not in VALID_SORT:
         raise ValueError("--sort must be one of: newest, oldest")
+    if namespace.group_by and namespace.group_by not in VALID_GROUP_BY:
+        raise ValueError("--group-by must be one of: model, mode, profile, status")
     parsed_fields: tuple[str, ...] = ()
     if namespace.fields:
         parsed_fields = parse_fields(namespace.fields)
         if namespace.format not in {"json", "tsv"}:
             raise ValueError("--fields requires --format json or --format tsv")
+    if namespace.group_by and namespace.format and namespace.format != "text":
+        raise ValueError("--group-by requires text output")
     return StatsArgs(
         limit=namespace.limit,
         date=namespace.date,
@@ -211,6 +218,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         sort=namespace.sort or "newest",
         count_only=namespace.count_only,
         fields=parsed_fields,
+        group_by=namespace.group_by,
     )
 
 
@@ -356,6 +364,7 @@ def format_json(records: list[dict], args: StatsArgs) -> str:
             "show_paths": args.show_paths,
             "sort": args.sort,
             "count_only": args.count_only,
+            "group_by": args.group_by,
         },
         "runs_analyzed": len(records),
     }
@@ -476,6 +485,14 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         f"Confidence: {format_counter(confidence_counts)}",
         f"Reason codes: {format_counter(reason_code_counts)}",
     ]
+    if args.group_by:
+        group_line = {
+            "status": f"Status: {format_counter(status_counts)}",
+            "profile": f"Profiles: {format_counter(profile_counts)}",
+            "model": f"Models: {format_counter(model_counts)}",
+            "mode": f"Modes: {format_counter(mode_counts)}",
+        }[args.group_by]
+        count_lines = [group_line]
     if args.count_only:
         return "\n".join(count_lines)
     lines = header + count_lines

@@ -25,7 +25,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --window 7d --status ok --profile parent --mode plan --model opus --confidence high --format json --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest --count-only --fields all"
+                "--limit 5 --date 2026-04-10 --since 2026-04-09 --until 2026-04-10 --window 7d --status ok --profile parent --mode plan --model opus --confidence high --reasons-only --fail-if-empty --summary-only --show-paths --sort oldest --count-only --group-by model"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -39,27 +39,15 @@ class ParentStatsTests(unittest.TestCase):
         self.assertEqual(args.mode, "plan")
         self.assertEqual(args.model, "opus")
         self.assertEqual(args.confidence, "high")
-        self.assertEqual(args.output_format, "json")
+        self.assertEqual(args.output_format, "text")
         self.assertTrue(args.reasons_only)
         self.assertTrue(args.fail_if_empty)
         self.assertTrue(args.summary_only)
         self.assertTrue(args.show_paths)
         self.assertEqual(args.sort, "oldest")
         self.assertTrue(args.count_only)
-        self.assertEqual(
-            args.fields,
-            (
-                "timestamp",
-                "profile",
-                "model",
-                "mode",
-                "status",
-                "confidence",
-                "reason_codes",
-                "request_text",
-                "source_path",
-            ),
-        )
+        self.assertEqual(args.group_by, "model")
+        self.assertEqual(args.fields, ())
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
@@ -90,6 +78,10 @@ class ParentStatsTests(unittest.TestCase):
             parent_stats.parse_raw_args("--fields nope")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--fields model")
+        with self.assertRaises(ValueError):
+            parent_stats.parse_raw_args("--group-by unknown")
+        with self.assertRaises(ValueError):
+            parent_stats.parse_raw_args("--format json --group-by model")
 
     def test_parse_fields_supports_core_preset(self) -> None:
         self.assertEqual(
@@ -355,6 +347,30 @@ class ParentStatsTests(unittest.TestCase):
         self.assertNotIn("Parent Run Stats", output)
         self.assertNotIn("Runs analyzed:", output)
         self.assertNotIn("Recent runs:", output)
+
+    def test_format_report_supports_group_by_output(self) -> None:
+        records = [
+            {
+                "profile": "parent",
+                "selected_model": "opus",
+                "selected_mode": "plan",
+                "execution_status": "ok",
+            },
+            {
+                "profile": "parent-no-opus",
+                "selected_model": "sonnet",
+                "selected_mode": "execute",
+                "execution_status": "ok",
+            },
+        ]
+        output = parent_stats.format_report(
+            records,
+            parent_stats.StatsArgs(group_by="model"),
+        )
+        self.assertIn("Models: opus=1, sonnet=1", output)
+        self.assertNotIn("Profiles:", output)
+        self.assertNotIn("Modes:", output)
+        self.assertNotIn("Reason codes:", output)
 
     def test_format_report_supports_reasons_only_json_output(self) -> None:
         records = [
