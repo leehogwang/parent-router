@@ -59,4 +59,4 @@ This keeps the interactive UX clean while preserving the full decision trail for
 
 ## Stats Inspection
 
-Use `/parent-stats` or `python3 scripts/parent_stats.py` to inspect recent `.parent/runs` JSON logs without opening individual files. The inspector supports `--limit N` and `--date YYYY-MM-DD`, then prints aggregated counts for status, profile, model, mode, and confidence plus a compact recent-run list.
+Use `/parent-stats` or `python3 scripts/parent_stats.py` to inspect recent `.parent/runs` JSON logs without opening individual files. The inspector supports `--limit N`, `--date YYYY-MM-DD`, and `--status ok|failed|dry-run`, then prints aggregated counts for status, profile, model, mode, and confidence plus a compact recent-run list.
