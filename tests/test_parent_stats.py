@@ -48,7 +48,7 @@ class ParentStatsTests(unittest.TestCase):
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
-            parent_stats.parse_raw_args("--limit 0")
+            parent_stats.parse_raw_args("--limit -1")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--date 2026/04/10")
         with self.assertRaises(ValueError):
@@ -355,6 +355,21 @@ class ParentStatsTests(unittest.TestCase):
                 )
         self.assertEqual(len(loaded), 1)
         self.assertEqual(loaded[0]["request_text"], "Within window")
+
+    def test_limit_zero_keeps_all_matching_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            run_dir = root / ".parent" / "runs" / "2026-04-10"
+            run_dir.mkdir(parents=True)
+            for index in range(3):
+                (run_dir / f"20260410T{index}00000Z-parent.json").write_text(
+                    json.dumps({"request_text": f"Request {index}"}), encoding="utf-8"
+                )
+            args = parent_stats.StatsArgs(limit=0)
+            loaded = parent_stats.load_run_records(
+                parent_stats.iter_run_json_files(root, args), args
+            )
+        self.assertEqual(len(loaded), 3)
 
     def test_show_paths_exposes_loaded_file_locations(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

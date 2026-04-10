@@ -89,8 +89,8 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--show-paths", action="store_true")
     parser.add_argument("--sort")
     namespace = parser.parse_args(tokens)
-    if namespace.limit <= 0:
-        raise ValueError("--limit must be greater than zero")
+    if namespace.limit < 0:
+        raise ValueError("--limit must be zero or greater")
     if namespace.date:
         try:
             datetime.strptime(namespace.date, "%Y-%m-%d")
@@ -217,7 +217,7 @@ def load_run_records(paths: list[Path], args: StatsArgs) -> list[dict]:
             continue
         record["_source_path"] = str(path)
         records.append(record)
-        if len(records) >= args.limit:
+        if args.limit and len(records) >= args.limit:
             break
     return records
 
