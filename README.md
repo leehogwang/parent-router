@@ -44,7 +44,7 @@ The user-facing output is intentionally plain. You see a normal Claude response,
 
 `/parent-no-opus` rejects `--model opus`.
 
-`/parent-stats` supports `--limit N`, `--date YYYY-MM-DD`, `--status ok|failed|dry-run`, `--profile parent|parent-no-opus`, `--mode plan|execute`, `--model haiku|sonnet|opus`, `--confidence high|medium|low`, `--format text|tsv|json`, and `--reasons-only`.
+`/parent-stats` supports `--limit N`, `--date YYYY-MM-DD`, `--status ok|failed|dry-run`, `--profile parent|parent-no-opus`, `--mode plan|execute`, `--model haiku|sonnet|opus`, `--confidence high|medium|low`, `--format text|tsv|json`, `--reasons-only`, and `--fail-if-empty`.
 
 ### Installation
 
@@ -62,7 +62,7 @@ Interactive:
 claude
 /parent fix the flaky multi-file integration test
 /parent-no-opus --dry-run Design a new authentication architecture with migration planning
-/parent-stats --model opus --reasons-only --format json --limit 20
+/parent-stats --model opus --reasons-only --format json --limit 20 --fail-if-empty
 ```
 
 One-shot:
@@ -71,7 +71,7 @@ One-shot:
 claude -p '/parent --dry-run rename one variable'
 claude -p '/parent --why fix the flaky multi-file integration test'
 claude -p '/parent-no-opus --dry-run Design a new authentication architecture with migration planning'
-claude -p '/parent-stats --date 2026-04-10 --model opus --reasons-only --format json --limit 20'
+claude -p '/parent-stats --date 2026-04-10 --model opus --reasons-only --format json --limit 20 --fail-if-empty'
 ```
 
 ### How routing works
@@ -96,7 +96,7 @@ Inspect recent routing history quickly:
 ```bash
 python3 scripts/parent_stats.py --limit 10
 python3 scripts/parent_stats.py --date 2026-04-10 --profile parent-no-opus --mode execute --model sonnet --confidence medium --status failed --limit 20 --format tsv
-python3 scripts/parent_stats.py --date 2026-04-10 --model opus --reasons-only --format json --limit 20
+python3 scripts/parent_stats.py --date 2026-04-10 --model opus --reasons-only --format json --limit 20 --fail-if-empty
 ```
 
 The stats report also aggregates `reason_codes`, so you can see which routing rules fired most often across recent runs.
@@ -106,6 +106,8 @@ Use `--format tsv` when you want machine-friendly rows for spreadsheets or quick
 Use `--reasons-only` when you want just the aggregated routing triggers without the full recent-run listing.
 
 Use `--format json` when downstream automation wants structured keys instead of text or TSV rows.
+
+Use `--fail-if-empty` when scripts should treat an empty filtered result set as a failure instead of a successful no-op.
 
 ### Development
 
