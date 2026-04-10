@@ -992,6 +992,19 @@ def clamp_transition_hint(decision: RouteDecision) -> str:
     return ""
 
 
+def forced_route_hint(decision: RouteDecision) -> str:
+    forced_bits: list[str] = []
+    if decision.explicit_model is not None:
+        forced_bits.append(f"model {decision.selected_model}")
+    if decision.explicit_mode is not None:
+        forced_bits.append(f"mode {decision.selected_mode}")
+    if decision.explicit_effort is not None:
+        forced_bits.append(f"effort {decision.effective_effort}")
+    if not forced_bits:
+        return ""
+    return "Using your requested " + ", ".join(forced_bits) + "."
+
+
 def write_logs(
     workspace_root: Path,
     profile: Profile,
@@ -1163,6 +1176,8 @@ def main(argv: list[str] | None = None) -> int:
         output = profile_transition_hint(profile, decision) + "\n\n" + output
     elif clamp_transition_hint(decision):
         output = clamp_transition_hint(decision) + "\n\n" + output
+    elif forced_route_hint(decision):
+        output = forced_route_hint(decision) + "\n\n" + output
     print(output.strip())
     return 0
 
