@@ -956,6 +956,15 @@ def explain_decision(profile: Profile, decision: RouteDecision) -> str:
     return f"I'll use {model} in {mode} mode with {effort} effort based on the request scope, risk, and ambiguity."
 
 
+def fallback_transition_hint(decision: RouteDecision) -> str:
+    if "LOW_CONFIDENCE_SAFE_FALLBACK" not in decision.reason_codes:
+        return ""
+    return (
+        "I started with a plan because the request still looked broad or ambiguous enough "
+        "that changing code directly would be risky."
+    )
+
+
 def write_logs(
     workspace_root: Path,
     profile: Profile,
@@ -1116,6 +1125,8 @@ def main(argv: list[str] | None = None) -> int:
     output = result.stdout or ""
     if parsed.why:
         output = explain_decision(profile, decision) + "\n\n" + output
+    elif fallback_transition_hint(decision):
+        output = fallback_transition_hint(decision) + "\n\n" + output
     print(output.strip())
     return 0
 
