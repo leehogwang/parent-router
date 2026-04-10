@@ -19,6 +19,7 @@ VALID_STATUSES = {"ok", "failed", "dry-run"}
 VALID_PROFILES = {"parent", "parent-no-opus"}
 VALID_MODES = {"plan", "execute"}
 VALID_MODELS = {"haiku", "sonnet", "opus"}
+VALID_CONFIDENCE = {"high", "medium", "low"}
 
 
 @dataclass
@@ -29,6 +30,7 @@ class StatsArgs:
     profile: str | None = None
     mode: str | None = None
     model: str | None = None
+    confidence: str | None = None
 
 
 def detect_workspace_root() -> Path:
@@ -47,6 +49,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--profile")
     parser.add_argument("--mode")
     parser.add_argument("--model")
+    parser.add_argument("--confidence")
     namespace = parser.parse_args(tokens)
     if namespace.limit <= 0:
         raise ValueError("--limit must be greater than zero")
@@ -63,6 +66,8 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         raise ValueError("--mode must be one of: execute, plan")
     if namespace.model and namespace.model not in VALID_MODELS:
         raise ValueError("--model must be one of: haiku, opus, sonnet")
+    if namespace.confidence and namespace.confidence not in VALID_CONFIDENCE:
+        raise ValueError("--confidence must be one of: high, low, medium")
     return StatsArgs(
         limit=namespace.limit,
         date=namespace.date,
@@ -70,6 +75,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         profile=namespace.profile,
         mode=namespace.mode,
         model=namespace.model,
+        confidence=namespace.confidence,
     )
 
 
@@ -109,6 +115,10 @@ def execution_model(record: dict) -> str:
     return record.get("selected_model") or "(unknown)"
 
 
+def execution_confidence(record: dict) -> str:
+    return record.get("confidence") or "(unknown)"
+
+
 def load_run_records(paths: list[Path], args: StatsArgs) -> list[dict]:
     records: list[dict] = []
     for path in paths:
@@ -123,6 +133,8 @@ def load_run_records(paths: list[Path], args: StatsArgs) -> list[dict]:
         if args.mode and execution_mode(record) != args.mode:
             continue
         if args.model and execution_model(record) != args.model:
+            continue
+        if args.confidence and execution_confidence(record) != args.confidence:
             continue
         records.append(record)
         if len(records) >= args.limit:
@@ -155,6 +167,8 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         header.append(f"Mode filter: {args.mode}")
     if args.model:
         header.append(f"Model filter: {args.model}")
+    if args.confidence:
+        header.append(f"Confidence filter: {args.confidence}")
     header.append(f"Runs analyzed: {len(records)}")
     if not records:
         return "\n".join(header + ["No run logs found."])
@@ -171,7 +185,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
         profile_counts[execution_profile(record)] += 1
         model_counts[execution_model(record)] += 1
         mode_counts[execution_mode(record)] += 1
-        confidence_counts[record.get("confidence") or "(unknown)"] += 1
+        confidence_counts[execution_confidence(record)] += 1
         for reason_code in record.get("reason_codes") or []:
             reason_code_counts[reason_code] += 1
 
@@ -193,6 +207,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
                     execution_profile(record),
                     f"{execution_model(record)}:{execution_mode(record)}",
                     execution_status(record),
+                    execution_confidence(record),
                     summarize_request(record.get("request_text") or ""),
                 ]
             )
