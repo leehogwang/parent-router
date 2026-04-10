@@ -24,7 +24,7 @@ class ParentStatsTests(unittest.TestCase):
             sys,
             "stdin",
             io.StringIO(
-                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format tsv"
+                "--limit 5 --date 2026-04-10 --status ok --profile parent --mode plan --model opus --confidence high --format tsv --reasons-only"
             ),
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
@@ -36,6 +36,7 @@ class ParentStatsTests(unittest.TestCase):
         self.assertEqual(args.model, "opus")
         self.assertEqual(args.confidence, "high")
         self.assertEqual(args.output_format, "tsv")
+        self.assertTrue(args.reasons_only)
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
@@ -142,6 +143,31 @@ class ParentStatsTests(unittest.TestCase):
             "2026-04-10T10:00:00+00:00\tparent\topus\tplan\tok\thigh\tHIGH_RISK_CHANGE\tPlan a migration for auth",
             output,
         )
+
+    def test_format_report_supports_reasons_only_output(self) -> None:
+        records = [
+            {
+                "reason_codes": ["HIGH_RISK_CHANGE", "GREENFIELD_SYSTEM_REQUEST"],
+            },
+            {
+                "reason_codes": ["HIGH_RISK_CHANGE"],
+            },
+        ]
+        output = parent_stats.format_report(
+            records,
+            parent_stats.StatsArgs(
+                date="2026-04-10",
+                model="opus",
+                reasons_only=True,
+            ),
+        )
+        self.assertIn("Date filter: 2026-04-10", output)
+        self.assertIn("Model filter: opus", output)
+        self.assertIn("Runs analyzed: 2", output)
+        self.assertIn(
+            "Reason codes: GREENFIELD_SYSTEM_REQUEST=1, HIGH_RISK_CHANGE=2", output
+        )
+        self.assertNotIn("Recent runs:", output)
 
     def test_profile_filter_excludes_other_profiles(self) -> None:
         records = [

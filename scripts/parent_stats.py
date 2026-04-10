@@ -33,6 +33,7 @@ class StatsArgs:
     model: str | None = None
     confidence: str | None = None
     output_format: str = "text"
+    reasons_only: bool = False
 
 
 def detect_workspace_root() -> Path:
@@ -53,6 +54,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser.add_argument("--model")
     parser.add_argument("--confidence")
     parser.add_argument("--format")
+    parser.add_argument("--reasons-only", action="store_true")
     namespace = parser.parse_args(tokens)
     if namespace.limit <= 0:
         raise ValueError("--limit must be greater than zero")
@@ -82,6 +84,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
         model=namespace.model,
         confidence=namespace.confidence,
         output_format=namespace.format or "text",
+        reasons_only=namespace.reasons_only,
     )
 
 
@@ -188,6 +191,28 @@ def format_tsv(records: list[dict]) -> str:
 
 
 def format_report(records: list[dict], args: StatsArgs) -> str:
+    if args.reasons_only:
+        reason_code_counts: Counter[str] = Counter()
+        for record in records:
+            for reason_code in record.get("reason_codes") or []:
+                reason_code_counts[reason_code] += 1
+        header = ["Parent Run Stats"]
+        if args.date:
+            header.append(f"Date filter: {args.date}")
+        if args.status:
+            header.append(f"Status filter: {args.status}")
+        if args.profile:
+            header.append(f"Profile filter: {args.profile}")
+        if args.mode:
+            header.append(f"Mode filter: {args.mode}")
+        if args.model:
+            header.append(f"Model filter: {args.model}")
+        if args.confidence:
+            header.append(f"Confidence filter: {args.confidence}")
+        header.append(f"Runs analyzed: {len(records)}")
+        header.append(f"Reason codes: {format_counter(reason_code_counts)}")
+        return "\n".join(header)
+
     if args.output_format == "tsv":
         return format_tsv(records)
 
