@@ -98,6 +98,8 @@ python3 scripts/parent_stats.py --limit 10
 python3 scripts/parent_stats.py --date 2026-04-10 --status failed --limit 20
 ```
 
+The stats report also aggregates `reason_codes`, so you can see which routing rules fired most often across recent runs.
+
 ### Development
 
 ```bash
