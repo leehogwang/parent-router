@@ -1088,6 +1088,13 @@ def format_failure(decision: RouteDecision, result: ExecutionResult) -> str:
     )
 
 
+def capture_failure_message(command_name: str) -> str:
+    return (
+        "Could not capture the current command arguments.\n\n"
+        f"Retry like `{command_name} <goal>`, for example `{command_name} fix the flaky integration test`."
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = argv or sys.argv
     workspace_root = detect_workspace_root()
@@ -1096,9 +1103,7 @@ def main(argv: list[str] | None = None) -> int:
         profile = resolve_profile(cli_args)
         anchor_index, raw_request = load_request_text(cli_args, remaining)
         if not raw_request:
-            raise ValueError(
-                "Could not capture the current command arguments. Please try again."
-            )
+            raise ValueError(capture_failure_message(cli_args.command_name))
         parsed = parse_command_arguments(raw_request)
         recent_context = build_recent_context(
             workspace_root, cli_args.session_id, anchor_index

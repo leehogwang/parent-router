@@ -192,6 +192,26 @@ class ParentRouterTests(unittest.TestCase):
         self.assertIn("Route:", message)
         self.assertIn("Next step: retry with `--dry-run --why`", message)
 
+    def test_main_shows_concrete_retry_guidance_when_request_capture_fails(
+        self,
+    ) -> None:
+        cli_args = mock.Mock(
+            session_id=None,
+            command_name="/parent",
+            command_profile=None,
+            started_at=None,
+        )
+        with (
+            mock.patch.object(parent, "parse_cli_args", return_value=(cli_args, [])),
+            mock.patch.object(sys, "stdin", io.StringIO("")),
+            mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
+        ):
+            exit_code = parent.main(["parent.py"])
+        self.assertEqual(exit_code, 2)
+        output = stdout.getvalue()
+        self.assertIn("Could not capture the current command arguments.", output)
+        self.assertIn("/parent fix the flaky integration test", output)
+
     def test_main_prepends_low_confidence_transition_hint(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
