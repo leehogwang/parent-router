@@ -15,12 +15,14 @@ import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RUNS_DIR = Path(os.environ.get("PARENTS_RUNS_DIR", ".parent/runs"))
+VALID_STATUSES = {"ok", "failed", "dry-run"}
 
 
 @dataclass
 class StatsArgs:
     limit: int = 10
     date: str | None = None
+    status: str | None = None
 
 
 def detect_workspace_root() -> Path:
@@ -35,6 +37,7 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--date")
+    parser.add_argument("--status")
     namespace = parser.parse_args(tokens)
     if namespace.limit <= 0:
         raise ValueError("--limit must be greater than zero")
@@ -43,7 +46,11 @@ def parse_raw_args(raw_args: str) -> StatsArgs:
             datetime.strptime(namespace.date, "%Y-%m-%d")
         except ValueError as exc:
             raise ValueError("--date must use YYYY-MM-DD") from exc
-    return StatsArgs(limit=namespace.limit, date=namespace.date)
+    if namespace.status and namespace.status not in VALID_STATUSES:
+        raise ValueError("--status must be one of: dry-run, failed, ok")
+    return StatsArgs(
+        limit=namespace.limit, date=namespace.date, status=namespace.status
+    )
 
 
 def load_stats_args(argv: list[str] | None = None) -> StatsArgs:
@@ -66,14 +73,21 @@ def iter_run_json_files(workspace_root: Path, args: StatsArgs) -> list[Path]:
     return sorted(runs_root.glob("*/*.json"), reverse=True)
 
 
-def load_run_records(paths: list[Path], limit: int) -> list[dict]:
+def execution_status(record: dict) -> str:
+    return record.get("execution_status") or "dry-run"
+
+
+def load_run_records(paths: list[Path], args: StatsArgs) -> list[dict]:
     records: list[dict] = []
     for path in paths:
         try:
-            records.append(json.loads(path.read_text(encoding="utf-8")))
+            record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
-        if len(records) >= limit:
+        if args.status and execution_status(record) != args.status:
+            continue
+        records.append(record)
+        if len(records) >= args.limit:
             break
     return records
 
@@ -95,6 +109,8 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
     header = ["Parent Run Stats"]
     if args.date:
         header.append(f"Date filter: {args.date}")
+    if args.status:
+        header.append(f"Status filter: {args.status}")
     header.append(f"Runs analyzed: {len(records)}")
     if not records:
         return "\n".join(header + ["No run logs found."])
@@ -106,7 +122,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
     confidence_counts: Counter[str] = Counter()
 
     for record in records:
-        status_counts[record.get("execution_status") or "dry-run"] += 1
+        status_counts[execution_status(record)] += 1
         profile_counts[record.get("profile") or "(unknown)"] += 1
         model_counts[record.get("selected_model") or "(unknown)"] += 1
         mode_counts[record.get("selected_mode") or "(unknown)"] += 1
@@ -128,7 +144,7 @@ def format_report(records: list[dict], args: StatsArgs) -> str:
                     record.get("timestamp") or "(no timestamp)",
                     record.get("profile") or "(unknown profile)",
                     f"{record.get('selected_model') or '?'}:{record.get('selected_mode') or '?'}",
-                    record.get("execution_status") or "dry-run",
+                    execution_status(record),
                     summarize_request(record.get("request_text") or ""),
                 ]
             )
@@ -144,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     workspace_root = detect_workspace_root()
     paths = iter_run_json_files(workspace_root, args)
-    records = load_run_records(paths, args.limit)
+    records = load_run_records(paths, args)
     print(format_report(records, args))
     return 0
 

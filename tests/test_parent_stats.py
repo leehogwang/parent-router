@@ -21,17 +21,20 @@ SPEC.loader.exec_module(parent_stats)
 class ParentStatsTests(unittest.TestCase):
     def test_load_stats_args_prefers_stdin(self) -> None:
         with mock.patch.object(
-            sys, "stdin", io.StringIO("--limit 5 --date 2026-04-10")
+            sys, "stdin", io.StringIO("--limit 5 --date 2026-04-10 --status ok")
         ):
             args = parent_stats.load_stats_args(["parent_stats.py", "--limit", "2"])
         self.assertEqual(args.limit, 5)
         self.assertEqual(args.date, "2026-04-10")
+        self.assertEqual(args.status, "ok")
 
     def test_parse_raw_args_rejects_invalid_values(self) -> None:
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--limit 0")
         with self.assertRaises(ValueError):
             parent_stats.parse_raw_args("--date 2026/04/10")
+        with self.assertRaises(ValueError):
+            parent_stats.parse_raw_args("--status maybe")
 
     def test_load_run_records_and_format_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -63,18 +66,20 @@ class ParentStatsTests(unittest.TestCase):
                     json.dumps(record), encoding="utf-8"
                 )
 
-            args = parent_stats.StatsArgs(limit=2, date="2026-04-10")
+            args = parent_stats.StatsArgs(limit=2, date="2026-04-10", status="ok")
             paths = parent_stats.iter_run_json_files(root, args)
-            loaded = parent_stats.load_run_records(paths, args.limit)
+            loaded = parent_stats.load_run_records(paths, args)
             report = parent_stats.format_report(loaded, args)
 
-        self.assertEqual(len(loaded), 2)
-        self.assertIn("Runs analyzed: 2", report)
-        self.assertIn("Status: dry-run=1, ok=1", report)
-        self.assertIn("Profiles: parent=1, parent-no-opus=1", report)
-        self.assertIn("Models: opus=1, sonnet=1", report)
+        self.assertEqual(len(loaded), 1)
+        self.assertIn("Status filter: ok", report)
+        self.assertIn("Runs analyzed: 1", report)
+        self.assertIn("Status: ok=1", report)
+        self.assertIn("Profiles: parent=1", report)
+        self.assertIn("Models: opus=1", report)
         self.assertIn("Recent runs:", report)
         self.assertIn("Plan a migration for auth", report)
+        self.assertNotIn("Rename one variable safely", report)
 
     def test_main_reports_no_runs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
