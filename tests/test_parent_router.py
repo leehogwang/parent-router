@@ -291,6 +291,82 @@ class ParentRouterTests(unittest.TestCase):
         self.assertIn("I stayed on Sonnet and started with a plan", output)
         self.assertIn("plan output", output)
 
+    def test_main_prepends_effort_clamp_hint_for_model_constraints(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            result = parent.ExecutionResult(
+                ok=True,
+                stdout="child output",
+                stderr="",
+                exit_code=0,
+                argv=[],
+            )
+            cli_args = mock.Mock(
+                session_id=None,
+                command_name="/parent",
+                command_profile=None,
+                started_at=None,
+            )
+            with (
+                mock.patch.dict(
+                    parent.os.environ, {"PARENTS_PROJECT_ROOT": str(root)}, clear=False
+                ),
+                mock.patch.object(
+                    sys,
+                    "stdin",
+                    io.StringIO("--model haiku --effort max rename one variable"),
+                ),
+                mock.patch.object(
+                    parent, "parse_cli_args", return_value=(cli_args, [])
+                ),
+                mock.patch.object(parent, "execute_route", return_value=result),
+                mock.patch.object(parent, "write_logs"),
+                mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
+            ):
+                exit_code = parent.main(["parent.py"])
+        self.assertEqual(exit_code, 0)
+        output = stdout.getvalue()
+        self.assertIn("I adjusted the requested effort from max to medium", output)
+        self.assertIn("child output", output)
+
+    def test_main_prepends_effort_clamp_hint_for_mode_constraints(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            result = parent.ExecutionResult(
+                ok=True,
+                stdout="child output",
+                stderr="",
+                exit_code=0,
+                argv=[],
+            )
+            cli_args = mock.Mock(
+                session_id=None,
+                command_name="/parent",
+                command_profile=None,
+                started_at=None,
+            )
+            with (
+                mock.patch.dict(
+                    parent.os.environ, {"PARENTS_PROJECT_ROOT": str(root)}, clear=False
+                ),
+                mock.patch.object(
+                    sys,
+                    "stdin",
+                    io.StringIO("--mode plan --effort low design an auth migration"),
+                ),
+                mock.patch.object(
+                    parent, "parse_cli_args", return_value=(cli_args, [])
+                ),
+                mock.patch.object(parent, "execute_route", return_value=result),
+                mock.patch.object(parent, "write_logs"),
+                mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
+            ):
+                exit_code = parent.main(["parent.py"])
+        self.assertEqual(exit_code, 0)
+        output = stdout.getvalue()
+        self.assertIn("I adjusted the requested effort from low to high", output)
+        self.assertIn("child output", output)
+
     def test_plan_route_uses_read_only_tools_without_claude_plan_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

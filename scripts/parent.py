@@ -974,6 +974,22 @@ def profile_transition_hint(profile: Profile, decision: RouteDecision) -> str:
     return ""
 
 
+def clamp_transition_hint(decision: RouteDecision) -> str:
+    if "USER_FORCED_EFFORT" not in decision.reason_codes:
+        return ""
+    if "EFFORT_CLAMPED_BY_MODEL" in decision.reason_codes:
+        return (
+            f"I adjusted the requested effort from {decision.selected_effort} to {decision.effective_effort} "
+            f"because {decision.selected_model} cannot safely use a higher effort setting."
+        )
+    if "EFFORT_CLAMPED_BY_MODE" in decision.reason_codes:
+        return (
+            f"I adjusted the requested effort from {decision.selected_effort} to {decision.effective_effort} "
+            f"because {decision.selected_mode} mode requires a different effort level."
+        )
+    return ""
+
+
 def write_logs(
     workspace_root: Path,
     profile: Profile,
@@ -1143,6 +1159,8 @@ def main(argv: list[str] | None = None) -> int:
         output = fallback_transition_hint(decision) + "\n\n" + output
     elif profile_transition_hint(profile, decision):
         output = profile_transition_hint(profile, decision) + "\n\n" + output
+    elif clamp_transition_hint(decision):
+        output = clamp_transition_hint(decision) + "\n\n" + output
     print(output.strip())
     return 0
 
