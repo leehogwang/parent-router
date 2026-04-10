@@ -360,6 +360,7 @@ class ParentRouterTests(unittest.TestCase):
             ):
                 exit_code = parent.main(["parent.py"])
         self.assertEqual(exit_code, 0)
+        self.assertIn("Route: haiku/execute/low", stdout.getvalue())
         self.assertIn("Confidence: high", stdout.getvalue())
 
     def test_main_prepends_low_confidence_transition_hint(self) -> None:

@@ -1177,7 +1177,10 @@ def capture_failure_message(command_name: str) -> str:
 
 
 def format_dry_run_message(profile: Profile, decision: RouteDecision) -> str:
-    return f"Confidence: {decision.confidence}\n" + explain_decision(profile, decision)
+    return (
+        f"Route: {decision.selected_model}/{decision.selected_mode}/{decision.effective_effort}\n"
+        f"Confidence: {decision.confidence}\n" + explain_decision(profile, decision)
+    )
 
 
 def empty_success_message() -> str:
