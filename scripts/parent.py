@@ -16,7 +16,9 @@ import time
 from typing import Iterable
 
 
-CLAUDE_BIN = Path(os.environ.get("PARENTS_CLAUDE_BIN", str(Path.home() / ".local/bin/claude")))
+CLAUDE_BIN = Path(
+    os.environ.get("PARENTS_CLAUDE_BIN", str(Path.home() / ".local/bin/claude"))
+)
 CLAUDE_PROJECTS_DIR = Path(
     os.environ.get("PARENTS_PROJECTS_DIR", str(Path.home() / ".claude/projects"))
 )
@@ -26,7 +28,9 @@ VISIBLE_TRANSCRIPT_MAX_MESSAGES = 24
 VISIBLE_TRANSCRIPT_MAX_CHARS = 10000
 OLDER_CONTEXT_SUMMARY_MAX_CHARS = 16000
 OLDER_CONTEXT_SUMMARY_MAX_LINES = 10
-SESSION_PROMPT_RETRY_COUNT = int(os.environ.get("PARENTS_SESSION_PROMPT_RETRY_COUNT", "120"))
+SESSION_PROMPT_RETRY_COUNT = int(
+    os.environ.get("PARENTS_SESSION_PROMPT_RETRY_COUNT", "120")
+)
 SESSION_PROMPT_RETRY_SLEEP_SECONDS = float(
     os.environ.get("PARENTS_SESSION_PROMPT_RETRY_SLEEP_SECONDS", "0.5")
 )
@@ -56,7 +60,11 @@ class Profile:
 
 
 PROFILES = {
-    "parent": Profile(name="parent", command_name="/parent", allowed_models=("haiku", "sonnet", "opus")),
+    "parent": Profile(
+        name="parent",
+        command_name="/parent",
+        allowed_models=("haiku", "sonnet", "opus"),
+    ),
     "parent-no-opus": Profile(
         name="parent-no-opus",
         command_name="/parent-no-opus",
@@ -87,7 +95,14 @@ class FeatureScores:
 
     @property
     def total(self) -> int:
-        return self.scope + self.ambiguity + self.risk + self.depth + self.research + self.action
+        return (
+            self.scope
+            + self.ambiguity
+            + self.risk
+            + self.depth
+            + self.research
+            + self.action
+        )
 
 
 @dataclass
@@ -126,7 +141,9 @@ def parse_started_at(raw_value: str) -> datetime | None:
     if not raw_value:
         return None
     try:
-        return datetime.strptime(raw_value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        return datetime.strptime(raw_value, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=timezone.utc
+        )
     except ValueError:
         return None
 
@@ -197,7 +214,9 @@ def is_recent_command_entry(entry: dict, invocation_started_at: datetime) -> boo
     timestamp = parse_entry_timestamp(entry)
     if timestamp is None:
         return False
-    return timestamp >= invocation_started_at - timedelta(seconds=CURRENT_PROMPT_LOOKBACK_SECONDS)
+    return timestamp >= invocation_started_at - timedelta(
+        seconds=CURRENT_PROMPT_LOOKBACK_SECONDS
+    )
 
 
 def find_current_command(
@@ -217,12 +236,22 @@ def extract_prompt_from_session(
 ) -> tuple[int, str]:
     for attempt in range(SESSION_PROMPT_RETRY_COUNT):
         entries = load_session_entries(session_id)
-        anchor_index, prompt = find_current_command(entries, command_name, invocation_started_at)
+        anchor_index, prompt = find_current_command(
+            entries, command_name, invocation_started_at
+        )
         if prompt:
             return anchor_index, prompt
         if attempt + 1 < SESSION_PROMPT_RETRY_COUNT:
             time.sleep(SESSION_PROMPT_RETRY_SLEEP_SECONDS)
     return -1, ""
+
+
+def find_anchor_index_from_session_once(
+    session_id: str, command_name: str, invocation_started_at: datetime
+) -> int:
+    entries = load_session_entries(session_id)
+    anchor_index, _ = find_current_command(entries, command_name, invocation_started_at)
+    return anchor_index
 
 
 def extract_visible_text_from_entry(entry: dict) -> str:
@@ -246,7 +275,9 @@ def extract_visible_text_from_entry(entry: dict) -> str:
     return "\n".join(texts).strip()
 
 
-def collect_visible_transcript_blocks(entries: list[dict], anchor_index: int) -> list[str]:
+def collect_visible_transcript_blocks(
+    entries: list[dict], anchor_index: int
+) -> list[str]:
     if not entries or anchor_index < 0:
         return []
     selected: list[str] = []
@@ -326,7 +357,9 @@ def build_recent_context(
     if len(blocks) > VISIBLE_TRANSCRIPT_MAX_MESSAGES:
         older_blocks = blocks[:-VISIBLE_TRANSCRIPT_MAX_MESSAGES]
         blocks = blocks[-VISIBLE_TRANSCRIPT_MAX_MESSAGES:]
-        summary = summarize_older_context(older_blocks, workspace_root, claude_bin=claude_bin)
+        summary = summarize_older_context(
+            older_blocks, workspace_root, claude_bin=claude_bin
+        )
 
     context = "\n\n".join(blocks)
     if len(context) > VISIBLE_TRANSCRIPT_MAX_CHARS:
@@ -509,9 +542,23 @@ def extract_scores(task: str, workspace_root: Path) -> tuple[FeatureScores, list
         "좋게",
         "도와줘",
     )
-    research_terms = ("latest", "recent", "current", "look up", "찾아봐", "최신", "요즘")
+    research_terms = (
+        "latest",
+        "recent",
+        "current",
+        "look up",
+        "찾아봐",
+        "최신",
+        "요즘",
+    )
     debugging_terms = ("debug", "investigate", "trace", "root cause", "디버그", "원인")
-    greenfield_terms = ("from scratch", "greenfield", "new system", "새 시스템", "처음부터")
+    greenfield_terms = (
+        "from scratch",
+        "greenfield",
+        "new system",
+        "새 시스템",
+        "처음부터",
+    )
 
     scope = 0
     ambiguity = 0
@@ -537,7 +584,10 @@ def extract_scores(task: str, workspace_root: Path) -> tuple[FeatureScores, list
     elif contains_any(text, execute_terms):
         risk = 1
 
-    if contains_any(text, ("architecture", "research", "strategy", "design", "아키텍처", "연구", "설계")):
+    if contains_any(
+        text,
+        ("architecture", "research", "strategy", "design", "아키텍처", "연구", "설계"),
+    ):
         depth = max(depth, 3)
     elif contains_any(text, debugging_terms):
         depth = max(depth, 2)
@@ -568,7 +618,9 @@ def extract_scores(task: str, workspace_root: Path) -> tuple[FeatureScores, list
         ambiguity = max(ambiguity, 1)
 
     meaningful_files = count_meaningful_files(workspace_root)
-    if meaningful_files == 0 and contains_any(text, greenfield_terms + multi_scope_terms):
+    if meaningful_files == 0 and contains_any(
+        text, greenfield_terms + multi_scope_terms
+    ):
         scope = 3
         depth = max(depth, 3)
         ambiguity = max(ambiguity, 2)
@@ -601,7 +653,9 @@ def dedupe(items: list[str]) -> list[str]:
     return ordered
 
 
-def select_mode(parsed: ParsedCommand, scores: FeatureScores, task: str) -> tuple[str, list[str]]:
+def select_mode(
+    parsed: ParsedCommand, scores: FeatureScores, task: str
+) -> tuple[str, list[str]]:
     reasons: list[str] = []
     if parsed.mode != "auto":
         reasons.append("USER_FORCED_MODE")
@@ -611,12 +665,16 @@ def select_mode(parsed: ParsedCommand, scores: FeatureScores, task: str) -> tupl
         return "plan", reasons
     if scores.ambiguity >= 2 and scores.scope >= 2:
         return "plan", reasons
-    if contains_any(text, ("plan", "design", "strategy", "계획", "설계", "전략", "분석")):
+    if contains_any(
+        text, ("plan", "design", "strategy", "계획", "설계", "전략", "분석")
+    ):
         return "plan", reasons
     return "execute", reasons
 
 
-def select_model(profile: Profile, parsed: ParsedCommand, scores: FeatureScores, mode: str) -> tuple[str, list[str], bool]:
+def select_model(
+    profile: Profile, parsed: ParsedCommand, scores: FeatureScores, mode: str
+) -> tuple[str, list[str], bool]:
     reasons: list[str] = []
     would_have_used_opus = False
     if parsed.model != "auto":
@@ -628,7 +686,12 @@ def select_model(profile: Profile, parsed: ParsedCommand, scores: FeatureScores,
         reasons.append("USER_FORCED_MODEL")
         return parsed.model, reasons, False
 
-    if mode == "execute" and scores.total <= 3 and scores.ambiguity == 0 and scores.risk == 0:
+    if (
+        mode == "execute"
+        and scores.total <= 3
+        and scores.ambiguity == 0
+        and scores.risk == 0
+    ):
         return "haiku", reasons, False
 
     if scores.total >= 9 or scores.risk >= 3 or scores.depth == 3 or scores.scope == 3:
@@ -642,7 +705,11 @@ def select_model(profile: Profile, parsed: ParsedCommand, scores: FeatureScores,
 
 
 def select_confidence(
-    parsed: ParsedCommand, scores: FeatureScores, mode: str, model: str, would_have_used_opus: bool
+    parsed: ParsedCommand,
+    scores: FeatureScores,
+    mode: str,
+    model: str,
+    would_have_used_opus: bool,
 ) -> str:
     if parsed.model != "auto" or parsed.mode != "auto" or parsed.effort != "auto":
         return "high"
@@ -650,13 +717,23 @@ def select_confidence(
     conflicts = 0
     if mode == "execute" and scores.ambiguity >= 2:
         conflicts += 1
-    if mode == "plan" and parsed.mode == "auto" and scores.action >= 2 and scores.total <= 6:
+    if (
+        mode == "plan"
+        and parsed.mode == "auto"
+        and scores.action >= 2
+        and scores.total <= 6
+    ):
         conflicts += 1
     if model == "haiku" and scores.depth >= 2:
         conflicts += 1
     if would_have_used_opus and mode != "plan":
         conflicts += 1
-    if scores.ambiguity >= 2 and scores.scope >= 2 and scores.depth < 3 and scores.risk < 3:
+    if (
+        scores.ambiguity >= 2
+        and scores.scope >= 2
+        and scores.depth < 3
+        and scores.risk < 3
+    ):
         conflicts += 2
     if conflicts >= 2:
         return "low"
@@ -673,7 +750,9 @@ def rank_to_effort(rank: int) -> str:
     return EFFORT_ORDER[clamp(rank, 0, len(EFFORT_ORDER) - 1)]
 
 
-def select_effort(parsed: ParsedCommand, scores: FeatureScores, mode: str, model: str) -> tuple[str, str, list[str]]:
+def select_effort(
+    parsed: ParsedCommand, scores: FeatureScores, mode: str, model: str
+) -> tuple[str, str, list[str]]:
     reasons: list[str] = []
     if parsed.effort != "auto":
         selected = parsed.effort
@@ -704,20 +783,33 @@ def select_effort(parsed: ParsedCommand, scores: FeatureScores, mode: str, model
     return selected, effective, dedupe(reasons)
 
 
-def choose_route(profile: Profile, parsed: ParsedCommand, workspace_root: Path) -> RouteDecision:
+def choose_route(
+    profile: Profile, parsed: ParsedCommand, workspace_root: Path
+) -> RouteDecision:
     scores, reasons = extract_scores(parsed.task, workspace_root)
     mode, mode_reasons = select_mode(parsed, scores, parsed.task)
     reasons.extend(mode_reasons)
-    model, model_reasons, would_have_used_opus = select_model(profile, parsed, scores, mode)
+    model, model_reasons, would_have_used_opus = select_model(
+        profile, parsed, scores, mode
+    )
     reasons.extend(model_reasons)
     confidence = select_confidence(parsed, scores, mode, model, would_have_used_opus)
-    if confidence == "low" and parsed.model == "auto" and parsed.mode == "auto" and parsed.effort == "auto":
+    if (
+        confidence == "low"
+        and parsed.model == "auto"
+        and parsed.mode == "auto"
+        and parsed.effort == "auto"
+    ):
         model = "sonnet"
         mode = "plan"
         reasons.append("LOW_CONFIDENCE_SAFE_FALLBACK")
     if mode == "plan" and model == "haiku":
-        raise ValueError("`haiku` cannot be used in plan mode. Use `sonnet`, `opus`, or mode `execute`.")
-    selected_effort, effective_effort, effort_reasons = select_effort(parsed, scores, mode, model)
+        raise ValueError(
+            "`haiku` cannot be used in plan mode. Use `sonnet`, `opus`, or mode `execute`."
+        )
+    selected_effort, effective_effort, effort_reasons = select_effort(
+        parsed, scores, mode, model
+    )
     reasons.extend(effort_reasons)
     return RouteDecision(
         profile=profile.name,
@@ -743,9 +835,13 @@ def build_child_prompt(decision: RouteDecision, recent_context: str) -> str:
         "Do not invoke /parent or /parent-no-opus.",
     ]
     if decision.selected_mode == "plan":
-        parts.append("Produce a concrete implementation plan only. Do not claim that you already made changes.")
+        parts.append(
+            "Produce a concrete implementation plan only. Do not claim that you already made changes."
+        )
     else:
-        parts.append("Act as the assistant handling the request normally inside Claude Code.")
+        parts.append(
+            "Act as the assistant handling the request normally inside Claude Code."
+        )
     if recent_context:
         parts.append(f"Visible conversation transcript so far:\n{recent_context}")
     parts.append(f"User request:\n{decision.request_text}")
@@ -814,7 +910,9 @@ def execute_route(
     try:
         completed = run_command(argv, workspace_root, env, input_text=child_prompt)
     except OSError as exc:
-        return ExecutionResult(ok=False, stdout="", stderr=str(exc), exit_code=127, argv=argv)
+        return ExecutionResult(
+            ok=False, stdout="", stderr=str(exc), exit_code=127, argv=argv
+        )
     return ExecutionResult(
         ok=completed.returncode == 0,
         stdout=completed.stdout.strip(),
@@ -884,13 +982,17 @@ def write_logs(
         "effective_effort": decision.effective_effort,
         "confidence": decision.confidence,
         "reason_codes": decision.reason_codes,
-        "execution_status": None if result is None else ("ok" if result.ok else "failed"),
+        "execution_status": None
+        if result is None
+        else ("ok" if result.ok else "failed"),
         "exit_code": None if result is None else result.exit_code,
         "child_argv_summary": None if result is None else result.argv[:-1],
         "stdout_summary": None if result is None else summarize_text(result.stdout),
         "stderr_summary": None if result is None else summarize_text(result.stderr),
     }
-    base.with_suffix(".json").write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    base.with_suffix(".json").write_text(
+        json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     markdown = [
         "# Parent Run",
@@ -919,7 +1021,7 @@ def write_logs(
                 f"- Exit code: `{result.exit_code}`",
                 f"- Child permission mode: `{get_child_arg_value(result.argv, '--permission-mode') or '(none)'}`",
                 f"- Child tools: `{get_child_arg_value(result.argv, '--tools') or '(none)'}`",
-                f"- STDERR: {summarize_text(result.stderr) or '(empty)' }",
+                f"- STDERR: {summarize_text(result.stderr) or '(empty)'}",
             ]
         )
     base.with_suffix(".md").write_text("\n".join(markdown) + "\n", encoding="utf-8")
@@ -935,12 +1037,14 @@ def resolve_profile(cli_args: argparse.Namespace) -> Profile:
     raise ValueError(f"Unknown command name: {cli_args.command_name}")
 
 
-def load_request_text(cli_args: argparse.Namespace, remaining: list[str]) -> tuple[int, str]:
+def load_request_text(
+    cli_args: argparse.Namespace, remaining: list[str]
+) -> tuple[int, str]:
     started_at = parse_started_at(cli_args.started_at) or datetime.now(timezone.utc)
     prompt = sys.stdin.read().strip()
     if prompt:
         if cli_args.session_id:
-            anchor_index, _ = extract_prompt_from_session(
+            anchor_index = find_anchor_index_from_session_once(
                 cli_args.session_id,
                 cli_args.command_name,
                 started_at,
@@ -950,7 +1054,9 @@ def load_request_text(cli_args: argparse.Namespace, remaining: list[str]) -> tup
     if remaining:
         return -1, " ".join(remaining).strip()
     if cli_args.session_id:
-        return extract_prompt_from_session(cli_args.session_id, cli_args.command_name, started_at)
+        return extract_prompt_from_session(
+            cli_args.session_id, cli_args.command_name, started_at
+        )
     return -1, ""
 
 
@@ -967,16 +1073,22 @@ def main(argv: list[str] | None = None) -> int:
         profile = resolve_profile(cli_args)
         anchor_index, raw_request = load_request_text(cli_args, remaining)
         if not raw_request:
-            raise ValueError("Could not capture the current command arguments. Please try again.")
+            raise ValueError(
+                "Could not capture the current command arguments. Please try again."
+            )
         parsed = parse_command_arguments(raw_request)
-        recent_context = build_recent_context(workspace_root, cli_args.session_id, anchor_index)
+        recent_context = build_recent_context(
+            workspace_root, cli_args.session_id, anchor_index
+        )
         decision = choose_route(profile, parsed, workspace_root)
     except ValueError as exc:
         print(str(exc))
         return 2
 
     if parsed.dry_run:
-        write_logs(workspace_root, profile, cli_args.command_name, parsed, decision, None)
+        write_logs(
+            workspace_root, profile, cli_args.command_name, parsed, decision, None
+        )
         message = explain_decision(profile, decision)
         print(message)
         return 0
